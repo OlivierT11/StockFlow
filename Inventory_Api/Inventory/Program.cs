@@ -3,6 +3,7 @@ using Inventory.Models;
 using Inventory.Repositories;
 using Inventory.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -99,9 +100,18 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 // basic health checks
-builder.Services.AddHealthChecks()
-    .AddCheck("self", () => HealthCheckResult.Healthy()) // app health check
-    .AddDbContextCheck<AppDbContext>(); // database health check
+builder.Services
+    .AddHealthChecks()
+    // app health check (Liveness)
+    .AddCheck(
+        "self",
+        () => HealthCheckResult.Healthy(),
+        tags: ["live"])
+    // database health check (Readiness)
+    .AddDbContextCheck<AppDbContext>(
+        name: "database",
+        tags: ["ready"]);
+
 
 // CORS (for frontend calls or direct API calls)
 builder.Services.AddCors(options =>
@@ -186,16 +196,23 @@ app.UseCors("ReactApp");
 app.UseAuthentication(); //jwt
 app.UseAuthorization();
 
-// Custom error handling endpoint for centralized exception handling (ProblemDetails). Rather than logging technical errors in every controller
+// Custom error handling endpoint for centralized exception handling (ProblemDetails). Rather than logging technical errors in every controller.
 app.UseExceptionHandler("/error");
 app.UseStatusCodePages(); 
 app.Map("/error", () =>
     Results.Problem(
-        statusCode: StatusCodes.Status500InternalServerError,
+        statusCode: StatusCodes.Status500InternalServerError, // An unhandled error will always return a 500.
         title: "Une erreur interne est survenue."));
 
-// health check
-app.MapHealthChecks("/api/health"); //"Healthy" means both the app and the database will be healthy
+// health checks
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live")
+});
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
 
 // Connects the controllers using thir defined routes (e.g., ProductController.cs defines /api/products route)
 app.MapControllers();

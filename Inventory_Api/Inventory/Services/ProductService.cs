@@ -29,9 +29,9 @@ namespace Inventory.Services
             }).ToList();
         }
 
-        public async Task<ProductListDto> GetWithPagerAsync(int page, CancellationToken cancellationToken = default)
+        public async Task<ProductListDto> GetWithPagerAsync(ProductSearchQueryDto query, CancellationToken cancellationToken = default)
         {
-            return await _productRepository.GetWithPagerAsync(page, cancellationToken);
+            return await _productRepository.GetWithPagerAsync(query, cancellationToken);
         }
 
         public async Task<ProductResponseDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)

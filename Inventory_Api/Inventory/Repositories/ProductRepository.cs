@@ -71,7 +71,7 @@ namespace Inventory.Repositories
         }
 
         public async Task<ProductListDto> GetWithPagerAsync(
-            int page,
+            ProductSearchQueryDto searchParams,
             CancellationToken cancellationToken = default)
         {
             // timeout token
@@ -82,12 +82,10 @@ namespace Inventory.Repositories
                 cancellationToken,
                 timeoutCts.Token);
 
-            const int pageSize = 10;
-
             try
             {
                 // Compter le nombre total d'éléments dans la table Products
-                var query = _context.Products
+                var result = _context.Products
                 .AsNoTracking()
                 .Select(product => new ProductResponseDto
                 {
@@ -97,21 +95,54 @@ namespace Inventory.Repositories
                     Stock = product.Stock
 
                 });
-                var totalItems = await query.CountAsync(linkedCts.Token);
-                var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+
+                if (!string.IsNullOrEmpty(searchParams.Name))
+                { 
+                    result = result.Where(p => p.Name.Contains(searchParams.Name));
+                }
+
+                if (searchParams.MinPrice > 0)
+                {
+                    result = result.Where(p => p.Price >= searchParams.MinPrice);
+                }
+
+                if (searchParams.MaxPrice > 0)
+                {
+                    result = result.Where(p => p.Price <= searchParams.MaxPrice);
+                }
+
+                if (searchParams.LowStockOnly)
+                {
+                    result = result.Where(p => p.Stock <= 10);
+                }
+
+                result = searchParams.SortBy switch
+                {
+                    "name" => searchParams.SortDirection == "desc"
+                        ? result.OrderByDescending(p => p.Name)
+                        : result.OrderBy(p => p.Name),
+                    "price" => searchParams.SortDirection == "desc"
+                        ? result.OrderByDescending(p => p.Price)
+                        : result.OrderBy(p => p.Price),
+                    "stock" => searchParams.SortDirection == "desc"
+                        ? result.OrderByDescending(p => p.Stock)
+                        : result.OrderBy(p => p.Stock),
+                    _ => result.OrderBy(p => p.Id) // Default sorting by Id
+                };
+
+                var totalItems = await result.CountAsync(linkedCts.Token);
+                var totalPages = (int)Math.Ceiling(totalItems / (double)searchParams.PageSize);
 
                 // Récupérer les produits pour la page demandée
-                var products = await query
-                    .Skip((page - 1) * pageSize)  // Skip(20) ignore les 20 premiers produits.
-                    .Take(pageSize) // Take(10) récupère au maximum 10 produits.
+                var products = await result
+                    .Skip((searchParams.AskedPage - 1) * searchParams.PageSize)  // Skip(20) ignore les 20 premiers produits.
+                    .Take(searchParams.PageSize) // Take(10) récupère au maximum 10 produits.
                     .ToListAsync(linkedCts.Token);
 
                 // Construire le DTO de réponse avec les informations de pagination
                 var productListDto = new ProductListDto
                 {
                     Products = products,
-                    CurrentPage = page,
-                    PageSize = pageSize,
                     TotalItems = totalItems,
                     TotalPages = totalPages
                 };

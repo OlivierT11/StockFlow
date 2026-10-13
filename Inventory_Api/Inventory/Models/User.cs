@@ -22,5 +22,9 @@ namespace Inventory.Models
         [Required]
         [MaxLength(255)]
         public string Role { get; set; } = "User";
+
+        // concurrency token for optimistic concurrency control
+        [Timestamp]
+        public byte[] Version { get; set; } = Array.Empty<byte>();
     }
 }

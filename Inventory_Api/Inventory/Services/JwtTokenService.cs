@@ -56,7 +56,7 @@ namespace Inventory.Services
                 audience: jwt["Audience"],
                 claims: claims,
                 expires: DateTime.UtcNow.AddMinutes(
-                    double.Parse(jwt["ExpiresMinutes"] ?? "60")),
+                    double.Parse(jwt["ExpiresMinutes"] ?? "15")), // default to 15 minutes if not specified in appsettings.json. Use double.Parse to convert the string from appsettings.json to a double.
                 signingCredentials: credentials);
 
             return new JwtSecurityTokenHandler().WriteToken(token);

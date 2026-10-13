@@ -6,6 +6,7 @@ using Inventory.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -15,7 +16,7 @@ namespace Inventory.Services
 {
     public class AuthService : IAuthService
     {
-        private readonly JwtTokenService _tokenService;
+        private readonly JwtTokenService _jwtTokenService;
         private readonly IMemoryCache _cache;
         private readonly IAuthRepository _authRepository;
         private readonly IPasswordHasher<User> _passwordHasher;
@@ -26,13 +27,20 @@ namespace Inventory.Services
             IMemoryCache cache,
             IPasswordHasher<User> passwordHasher)
         {
-            _tokenService = tokenService;
+            _jwtTokenService = tokenService;
             _authRepository = authRepository;
             _cache = cache;
             _passwordHasher = passwordHasher;
         }
 
-        public async Task<string?> LogUserAsync(LoginDto loginDto, CancellationToken cancellationToken = default)
+        /// <summary>
+        /// Logs in a user by validating their credentials and returning a JWT token and refresh token if successful.
+        /// </summary>
+        /// <param name="loginDto"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
+        public async Task<string[]?> LogUserAsync(LoginDto loginDto, CancellationToken cancellationToken = default)
         {
             //string cacheKey = $"user:{loginDto.Email}";
 
@@ -94,13 +102,67 @@ namespace Inventory.Services
                 return null;
             }
 
+            string jwtToken = _jwtTokenService.CreateToken(
+                result.Id,
+                result.Email,
+                result.Role);
 
-            return _tokenService.CreateToken(
+            string refreshToken = await _authRepository.IssueRefreshTokenAsync(result, cancellationToken);
+            return new[] { jwtToken, refreshToken };
+
+        }
+
+        /// <summary>
+        /// Refreshes the access token using a valid refresh token.
+        /// </summary>
+        /// <param name="request"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
+        public async Task<string[]?> RefreshTokenAsync(RefreshRequest request, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(request.RefreshToken))
+            {
+                throw new ArgumentException("Refresh token is required.");
+            }
+
+            // Tests the validity of the refresh token.
+            var refreshed = await _authRepository.RefreshTokenAsync(request, cancellationToken);
+            if (refreshed is null)
+            {
+                return null;
+            }
+
+            // If the refresh token is valid, generate a new access token AND refresh token.
+            var user = refreshed.Value.User;
+            var accessToken = _jwtTokenService.CreateToken(
                 user.Id,
                 user.Email,
                 user.Role);
+
+            return new[] { accessToken, refreshed.Value.RefreshToken };
         }
 
+        public Task<bool> RevokeRefreshTokenAsync(
+            string refreshToken,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(refreshToken))
+            {
+                // Safely reject blank or whitespace-only token values.
+                return Task.FromResult(false);
+            }
+
+            return _authRepository.RevokeRefreshTokenAsync(refreshToken, cancellationToken);
+        }
+
+        /// <summary>
+        /// Adds a new user to the system after validating the input and hashing the password.
+        /// </summary>
+        /// <param name="registerDto"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
         public async Task<bool> AddUserAsync(CreateUserDTO registerDto, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(registerDto.Password))

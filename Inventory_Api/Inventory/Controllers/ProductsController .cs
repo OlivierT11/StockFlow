@@ -35,13 +35,13 @@ public class ProductsController : ControllerBase
     [HttpGet("paged")]
     [Authorize(Roles = "Admin,User")]
     public async Task<ActionResult<ProductListDto>> GetWithPager(
-    [FromQuery] int page = 1,
+    ProductSearchQueryDto query,
     CancellationToken cancellationToken = default)
     {
-        if (page < 1)
-            page = 1;
+        if (query.AskedPage < 1)
+            query.AskedPage = 1;
 
-        var productListDto = await _service.GetWithPagerAsync(page, cancellationToken);
+        var productListDto = await _service.GetWithPagerAsync(query, cancellationToken);
 
         return Ok(productListDto);
     }
