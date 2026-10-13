@@ -1,6 +1,7 @@
 ﻿using Inventory.DTOs;
 using Inventory.Models;
 using Inventory.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,22 +19,12 @@ public class ProductsController : ControllerBase
         _service = service;
     }
 
-    // test, no DB call
-    //[HttpGet]
-    //public IActionResult GetProducts()
-    //{
-    //    return Ok(new[]
-    //    {
-    //        new { Id = 1, Name = "Laptop", Price = 999 },
-    //        new { Id = 2, Name = "Keyboard", Price = 49 }
-    //    });
-    //}
-
     /// <summary>
     /// Gets all products.
     /// </summary>
     /// <returns>The list of all products.</returns>
     [HttpGet]
+    [Authorize(Roles = "Admin,User")]
     public async Task<ActionResult<List<ProductResponseDto>>> GetAll(
         CancellationToken cancellationToken = default)
     {
@@ -42,14 +33,15 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet("paged")]
+    [Authorize(Roles = "Admin,User")]
     public async Task<ActionResult<ProductListDto>> GetWithPager(
-    [FromQuery] int page = 1,
+    ProductSearchQueryDto query,
     CancellationToken cancellationToken = default)
     {
-        if (page < 1)
-            page = 1;
+        if (query.AskedPage < 1)
+            query.AskedPage = 1;
 
-        var productListDto = await _service.GetWithPager(page, cancellationToken);
+        var productListDto = await _service.GetWithPagerAsync(query, cancellationToken);
 
         return Ok(productListDto);
     }
@@ -60,6 +52,7 @@ public class ProductsController : ControllerBase
     /// <param name="id">The product identifier.</param>
     /// <returns>The requested product.</returns>
     [HttpGet("{id:int}")]
+    [Authorize(Roles = "Admin,User")]
     public async Task<ActionResult<ProductResponseDto>> GetById(
         int id,
         CancellationToken cancellationToken = default)
@@ -80,6 +73,7 @@ public class ProductsController : ControllerBase
     /// <param name="dto">The product data.</param>
     /// <returns>The created product.</returns>
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ProductResponseDto>> Create(
         ProductCreateDto dto,
         CancellationToken cancellationToken = default)
@@ -99,6 +93,7 @@ public class ProductsController : ControllerBase
     /// <param name="dto">The product data.</param>
     /// <returns>A valid action result.</returns>
     [HttpPut("{id:int}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Update(
         int id,
         ProductUpdateDto dto,
@@ -128,6 +123,7 @@ public class ProductsController : ControllerBase
     /// <param name="id">The product identifier.</param>
     /// <returns>A valid action result.</returns>
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(
         int id,
         CancellationToken cancellationToken = default)

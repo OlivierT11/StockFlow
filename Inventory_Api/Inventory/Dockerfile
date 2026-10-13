@@ -20,11 +20,13 @@ RUN dotnet publish ./Inventory.csproj \
     -o /app/publish \
     --no-restore
 
+# Multi-stage build qui permet d’obtenir une image de production plus petite et plus propre, en ne mettant ni le SDK ni les outils de compilation dans l'image finale.
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 
 WORKDIR /app
 
 # Mettre dans l'image docker le resultat du build .NET, c-a-d les dll, non les fichiers source .cs
+# De plus, copier uniquement le dossier /publish de l'étape précédente permet de ne pas inclure les outils de compilation (SDK, compiler...) dans l'image finale.
 COPY --from=build /app/publish .
 
 # Configure l'application pour écouter sur le port 8080.

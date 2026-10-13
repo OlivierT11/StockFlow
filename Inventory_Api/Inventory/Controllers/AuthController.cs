@@ -2,6 +2,7 @@
 using Inventory.Models;
 using Inventory.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
 using System.IdentityModel.Tokens.Jwt;
 
@@ -31,9 +32,9 @@ namespace Inventory.Controllers
         [HttpPost("login")] //(url)/api/auth/login
         public async Task<IActionResult> Login(LoginDto dto, CancellationToken cancellationToken = default)
         {
-            var token = await _service.LogUserAsync(dto, cancellationToken);
+            string[] tokens = await _service.LogUserAsync(dto, cancellationToken);
 
-            if (token is null)
+            if (tokens is null)
             {
                 return Unauthorized(new  // Unauthorized() is part of IActionResult, as well as OK()
                 {
@@ -41,7 +42,35 @@ namespace Inventory.Controllers
                 });
             }
 
-            return Ok(new { access_token = token });
+            return Ok(new { access_token = tokens[0], refresh_token = tokens[1] });
+        }
+
+        /// <summary>
+        /// Endpoint POST /api/auth/refresh.
+        /// Refreshes the access token using a valid refresh token. 
+        /// If the provided refresh token is valid and not revoked or expired, a new access token and refresh token are generated and returned. 
+        /// The old refresh token is revoked to prevent reuse.
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
+        [HttpPost("refresh")]
+        public async Task<IActionResult> Refresh(RefreshRequest request, CancellationToken cancellationToken = default)
+        {
+            string[] tokens = await _service.RefreshTokenAsync(request, cancellationToken);
+
+            if (tokens is null)
+            {
+                return Unauthorized(new
+                {
+                    message = "Invalid or expired refresh token."
+                });
+            }
+
+            return Ok(new
+            {
+                accessToken = tokens[0],
+                refreshToken = tokens[1]
+            });
         }
 
         /// <summary>
@@ -50,8 +79,15 @@ namespace Inventory.Controllers
         /// <returns></returns>
         [Authorize]
         [HttpPost("logout")]
-        public IActionResult Logout()
+        public async Task<IActionResult> Logout(
+            RefreshRequest request,
+            CancellationToken cancellationToken = default)
         {
+            if (request is null || string.IsNullOrWhiteSpace(request.RefreshToken))
+            {
+                return BadRequest("Missing refresh token.");
+            }
+
             // Extract the JWT token from the Authorization header
             var token = Request.Headers.Authorization
                 .ToString()
@@ -74,6 +110,8 @@ namespace Inventory.Controllers
             {
                 return BadRequest("Token does not contain a jti claim.");
             }
+
+            await _service.RevokeRefreshTokenAsync(request.RefreshToken, cancellationToken);
 
             _tokenRevocationService.Revoke(
                 jti,

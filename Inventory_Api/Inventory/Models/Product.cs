@@ -17,6 +17,10 @@ public class Product
 
     public int Stock { get; set; }
 
+    // concurrency token for optimistic concurrency control
+    [Timestamp]
+    public byte[] Version { get; set; } = Array.Empty<byte>();
+
     //[MaxLength(50)]
     //public string SKU { get; set; } = string.Empty;
 

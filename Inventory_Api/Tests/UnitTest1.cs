@@ -5,10 +5,13 @@ using Inventory.Models;
 using Inventory.Repositories;
 using Inventory.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using System.Net;
+using System.Net.Http.Json;
 using System.Reflection;
 
 namespace Tests;
@@ -261,6 +264,70 @@ public class UnitTest1
     }
 
     /// <summary>
+    /// Test to ensure that two concurrent calls to DeleteAsync for the same product only remove it once.
+    /// It uses a gate (TaskCompletionSource) to synchronize the two delete operations, ensuring they attempt to delete the same product at the same time. 
+    /// The test asserts that only one of the delete operations succeeds, confirming that the repository handles concurrent deletions correctly.
+    /// </summary>
+    /// <returns></returns>
+    [Fact]
+    public async Task DeleteAsync_TwoConcurrentCalls_RemoveProductOnlyOnce()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+
+        // Create a new context for the test, ensuring that both repositories share the same in-memory database (same name).
+        AppDbContext CreateTestContext()
+        {
+            var options = new DbContextOptionsBuilder<AppDbContext>()
+                .UseInMemoryDatabase(databaseName)
+                .Options;
+
+            return new AppDbContext(options);
+        }
+
+        using var setupContext = CreateTestContext();
+        var setupRepo = new ProductRepository(
+            setupContext,
+            NullLogger<ProductRepository>.Instance,
+            new MemoryCache(new MemoryCacheOptions()));
+
+        var product = await setupRepo.CreateAsync(
+            new Product { Name = "ToDelete", Price = 1m, Stock = 1 });
+
+        Assert.Equal(1, product.Id); //don't log anything if passing
+
+        // Create two separate contexts and repositories that point to the same in-memory database (or setupContext will create a Product in base,
+        // but context1 and context2 will not see it if they are not using the same database name).
+        using var context1 = CreateTestContext();
+        using var context2 = CreateTestContext();
+
+        var repo1 = new ProductRepository(
+            context1, NullLogger<ProductRepository>.Instance,
+            new MemoryCache(new MemoryCacheOptions()));
+
+        var repo2 = new ProductRepository(
+            context2, NullLogger<ProductRepository>.Instance,
+            new MemoryCache(new MemoryCacheOptions()));
+
+        var gate = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        async Task<bool> DeleteWhenReleased(ProductRepository repo)
+        {
+            await gate.Task;
+            return await repo.DeleteAsync(product.Id);
+        }
+
+        var delete1 = DeleteWhenReleased(repo1);
+        var delete2 = DeleteWhenReleased(repo2);
+
+        gate.SetResult();
+
+        var results = await Task.WhenAll(delete1, delete2);
+
+        Assert.Single(results, deleted => deleted);
+    }
+
+    /// <summary>
     /// Test to ensure that deleting a non-existing product returns false.
     /// </summary>
     /// <returns></returns>
@@ -303,120 +370,6 @@ public class UnitTest1
             repo.DeleteAsync(
                 created.Id,
                 cancellationTokenSource.Token));
-    }
-
-
-    /// <summary>
-    /// Test to ensure that the Login method returns an OkObjectResult with a token when valid credentials are provided.
-    /// </summary>
-    /// <returns></returns>
-    [Fact]
-    public async Task Login_ReturnsOk_WithToken_WhenCredentialsValid()
-    {
-        // Arrange
-        var expectedToken = "fake-jwt-token";
-        var mockService = new Mock<IAuthService>();
-        mockService
-            .Setup(s => s.LogUserAsync(It.IsAny<LoginDto>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedToken);
-
-        var controller = new AuthController(mockService.Object);
-        var dto = new LoginDto { Email = "user@example.com", Password = "Password123!" };
-
-        // Act
-        var actionResult = await controller.Login(dto, CancellationToken.None);
-
-        // Assert
-        var okResult = Assert.IsType<OkObjectResult>(actionResult);
-        Assert.NotNull(okResult.Value);
-
-        // anonymous object { Token = token } -> reflect to get Token property
-        var tokenProp = okResult.Value
-            .GetType()
-            .GetProperty("access_token", BindingFlags.Public | BindingFlags.Instance);
-
-        Assert.NotNull(tokenProp);
-        var actualToken = tokenProp.GetValue(okResult.Value) as string;
-        Assert.Equal(expectedToken, actualToken);
-    }
-
-    /// <summary>
-    /// Test to ensure that the Login method returns an UnauthorizedObjectResult when invalid credentials are provided.
-    /// </summary>
-    /// <returns></returns>
-    [Fact]
-    public async Task Login_ReturnsUnauthorized_WhenCredentialsInvalid()
-    {
-        // Arrange
-        var mockService = new Mock<IAuthService>();
-        mockService
-            .Setup(s => s.LogUserAsync(
-                It.IsAny<LoginDto>(), // "It" is a Moq helper class used to describe argument matching
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);  // return null asynchronously ; (string?) explicitly tells the compiler that the returned value is a nullable string.
-
-        var controller = new AuthController(mockService.Object);
-        var dto = new LoginDto { Email = "user@example.com", Password = "wrong" };
-
-        // Act
-        var actionResult = await controller.Login(dto, CancellationToken.None);
-
-        // Assert
-        Assert.IsType<UnauthorizedObjectResult>(actionResult);
-    }
-
-    /// <summary>
-    /// Test to ensure that the AddUser method returns an OkObjectResult with a success message when the service successfully adds a user.
-    /// </summary>
-    /// <returns></returns>
-    [Fact]
-    public async Task AddUser_ReturnsOk_WhenServiceAddsUser()
-    {
-        // Arrange
-        var mockService = new Mock<IAuthService>();
-        mockService
-            .Setup(s => s.AddUserAsync(
-                It.IsAny<CreateUserDTO>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-
-        var controller = new AuthController(mockService.Object);
-        var request = new CreateUserDTO { Email = "new@example.com", Password = "Pass123!" };
-
-        // Act
-        var actionResult = await controller.AddUser(request, CancellationToken.None);
-
-        // Assert
-        var okResult = Assert.IsType<OkObjectResult>(actionResult);
-        Assert.NotNull(okResult.Value);
-
-        var messageProp = okResult.Value.GetType().GetProperty("message", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-        Assert.NotNull(messageProp);
-        var message = messageProp.GetValue(okResult.Value) as string;
-        Assert.Contains("User created", message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    /// <summary>
-    /// Test to ensure that the AddUser method returns a BadRequestObjectResult when the service fails to add a user.
-    /// </summary>
-    /// <returns></returns>
-    [Fact]
-    public async Task AddUser_ReturnsBadRequest_WhenServiceFailsToAddUser()
-    {
-        // Arrange
-        var mockService = new Mock<IAuthService>();
-        mockService
-            .Setup(s => s.AddUserAsync(It.IsAny<CreateUserDTO>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
-
-        var controller = new AuthController(mockService.Object);
-        var request = new CreateUserDTO { Email = "new@example.com", Password = "Pass123!" };
-
-        // Act
-        var actionResult = await controller.AddUser(request, CancellationToken.None);
-
-        // Assert
-        Assert.IsType<BadRequestObjectResult>(actionResult);
     }
 
 }

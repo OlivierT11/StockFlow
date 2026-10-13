@@ -49,6 +49,15 @@ Création initiale de la DB :
 dotnet ef migrations add InitialCreate
 	> crée un dossier Migrations
 dotnet ef database update
+    > applique le fichier migration_newName.cs à la DB (création de la DB et des tables)
+
+Si erreur "la table xxx existe déjà", ça veut dire que le script tente de faire un CREATE TABLE d'uen table qui existe déjà :
+    dotnet ef migrations list
+    > regarder les migrations "PENDING" (= pas encore appliquées à la DB). 
+    > Il devrait y avoir une migration "InitialCreate" qui n'a pas été appliquée à la DB. 
+    > Si c'est le cas, il faut aller dans la BD __EFMigrationsHistory (View Data) et ajouter ou supprimer la ligne correspondant à la migration qui pose problème.
+    > puis refaire dotnet ef migrations list et vérifier que le "PENDING" a disparu.
+    > puis relancer dotnet ef database update
 
 Erreur : "Une erreur liée au réseau ou spécifique à l'instance s'est produite lors de l'établissement d'une connexion à SQL Server. Le serveur est introuvable ou n'est pas accessible. 
 Vérifiez que le nom de l'instance est correct et que SQL Server est configuré pour autoriser les connexions distantes. (provider: Fournisseur de canaux nommés, 

@@ -50,7 +50,7 @@ namespace Inventory.Repositories
                     Price = product.Price,
                     Stock = product.Stock
                 })
-                .ToListAsync(cancellationToken);
+                .ToListAsync(linkedCts.Token);
             }
             catch (OperationCanceledException) when (
                 cancellationToken.IsCancellationRequested)
@@ -60,7 +60,8 @@ namespace Inventory.Repositories
 
                 throw;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (
+                timeoutCts.IsCancellationRequested)
             {
                 _logger.LogWarning(
                     "Get product timed out");
@@ -69,8 +70,8 @@ namespace Inventory.Repositories
             }
         }
 
-        public async Task<ProductListDto> GetWithPager(
-            int page,
+        public async Task<ProductListDto> GetWithPagerAsync(
+            ProductSearchQueryDto searchParams,
             CancellationToken cancellationToken = default)
         {
             // timeout token
@@ -81,12 +82,10 @@ namespace Inventory.Repositories
                 cancellationToken,
                 timeoutCts.Token);
 
-            const int pageSize = 10;
-
             try
             {
                 // Compter le nombre total d'éléments dans la table Products
-                var query = _context.Products
+                var result = _context.Products
                 .AsNoTracking()
                 .Select(product => new ProductResponseDto
                 {
@@ -96,21 +95,54 @@ namespace Inventory.Repositories
                     Stock = product.Stock
 
                 });
-                var totalItems = await query.CountAsync(cancellationToken);
-                var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+
+                if (!string.IsNullOrEmpty(searchParams.Name))
+                { 
+                    result = result.Where(p => p.Name.Contains(searchParams.Name));
+                }
+
+                if (searchParams.MinPrice > 0)
+                {
+                    result = result.Where(p => p.Price >= searchParams.MinPrice);
+                }
+
+                if (searchParams.MaxPrice > 0)
+                {
+                    result = result.Where(p => p.Price <= searchParams.MaxPrice);
+                }
+
+                if (searchParams.LowStockOnly)
+                {
+                    result = result.Where(p => p.Stock <= 10);
+                }
+
+                result = searchParams.SortBy switch
+                {
+                    "name" => searchParams.SortDirection == "desc"
+                        ? result.OrderByDescending(p => p.Name)
+                        : result.OrderBy(p => p.Name),
+                    "price" => searchParams.SortDirection == "desc"
+                        ? result.OrderByDescending(p => p.Price)
+                        : result.OrderBy(p => p.Price),
+                    "stock" => searchParams.SortDirection == "desc"
+                        ? result.OrderByDescending(p => p.Stock)
+                        : result.OrderBy(p => p.Stock),
+                    _ => result.OrderBy(p => p.Id) // Default sorting by Id
+                };
+
+                var totalItems = await result.CountAsync(linkedCts.Token);
+                var totalPages = (int)Math.Ceiling(totalItems / (double)searchParams.PageSize);
 
                 // Récupérer les produits pour la page demandée
-                var products = await query
-                    .Skip((page - 1) * pageSize)  // Skip(20) ignore les 20 premiers produits.
-                    .Take(pageSize) // Take(10) récupère au maximum 10 produits.
-                    .ToListAsync(cancellationToken);
+                var products = await result
+                    .Skip((searchParams.AskedPage - 1) * searchParams.PageSize)  // Skip(20) ignore les 20 premiers produits.
+                    .Take(searchParams.PageSize) // Take(10) récupère au maximum 10 produits.
+                    .ToListAsync(linkedCts.Token);
 
                 // Construire le DTO de réponse avec les informations de pagination
                 var productListDto = new ProductListDto
                 {
                     Products = products,
-                    CurrentPage = page,
-                    PageSize = pageSize,
                     TotalItems = totalItems,
                     TotalPages = totalPages
                 };
@@ -125,7 +157,8 @@ namespace Inventory.Repositories
 
                 throw;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (
+                timeoutCts.IsCancellationRequested)
             {
                 _logger.LogWarning(
                     "Get product timed out");
@@ -172,7 +205,7 @@ namespace Inventory.Repositories
                         Price = product.Price,
                         Stock = product.Stock
                     })
-                    .FirstOrDefaultAsync(cancellationToken);
+                    .FirstOrDefaultAsync(linkedCts.Token);
 
                 if (product != null)
                 {
@@ -193,7 +226,8 @@ namespace Inventory.Repositories
 
                 throw;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (
+                timeoutCts.IsCancellationRequested)
             {
                 _logger.LogWarning(
                     "Get product timed out");
@@ -221,7 +255,7 @@ namespace Inventory.Repositories
             try
             {
                 _context.Products.Add(product);
-                await _context.SaveChangesAsync(cancellationToken);
+                await _context.SaveChangesAsync(linkedCts.Token);
 
                 return new Product
                 {
@@ -238,7 +272,8 @@ namespace Inventory.Repositories
                     "Create product was canceled by the caller");
                 throw;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (
+                timeoutCts.IsCancellationRequested)
             {
                 _logger.LogWarning(
                     "Create product timed out");
@@ -266,7 +301,7 @@ namespace Inventory.Repositories
             try
             {
                 var updatedProduct = await _context.Products
-                .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+                .FirstOrDefaultAsync(p => p.Id == id, linkedCts.Token);
 
                 if (updatedProduct is null)
                 {
@@ -281,7 +316,9 @@ namespace Inventory.Repositories
 
                 // Console.WriteLine(updatedProduct.State); // DEBUG: Log the state of the entity after updating
 
-                await _context.SaveChangesAsync(cancellationToken);
+                await _context.SaveChangesAsync(linkedCts.Token);
+
+                _cache.Remove($"product:{id}");
 
                 return true;
             }
@@ -292,7 +329,8 @@ namespace Inventory.Repositories
                     "Update product was canceled by the caller");
                 throw;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (
+                timeoutCts.IsCancellationRequested)
             {
                 _logger.LogWarning(
                     "Update product timed out");
@@ -319,7 +357,7 @@ namespace Inventory.Repositories
             try
             {
                 var product = await _context.Products
-                    .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+                    .FirstOrDefaultAsync(p => p.Id == id, linkedCts.Token);
 
                 if (product is null)
                 {
@@ -327,7 +365,9 @@ namespace Inventory.Repositories
                 }
 
                 _context.Products.Remove(product);
-                await _context.SaveChangesAsync(cancellationToken);
+                await _context.SaveChangesAsync(linkedCts.Token);
+
+                _cache.Remove($"product:{id}");
 
                 return true;
             }
@@ -338,7 +378,8 @@ namespace Inventory.Repositories
                     "Delete product was canceled by the caller");
                 throw;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (
+                timeoutCts.IsCancellationRequested)
             {
                 _logger.LogWarning(
                     "Delete product timed out");
