@@ -25,7 +25,7 @@ using System.Text.Json;
 
 namespace Tests;
 
-public class UnitTest_Connections
+public class AuthTests
 {
     private static AppDbContext CreateContext()
     {
@@ -107,7 +107,7 @@ public class UnitTest_Connections
         var existingRefreshToken = "existing-refresh-token";
         var userEmail = "refresh-user@example.com";
 
-        using var factory = new WebApplicationFactory<Program>();
+        using var factory = new InMemoryWebApplicationFactory();
 
         // Arrange: create a user and a refresh token in the database
         using (var scope = factory.Services.CreateScope())
@@ -158,7 +158,7 @@ public class UnitTest_Connections
         const string revokedRefreshToken = "revoked-refresh-token";
 
         // Arrange : prépare les données dans la base de l'application.
-        using var factory = new WebApplicationFactory<Program>();
+        using var factory = new InMemoryWebApplicationFactory();
 
         // Create a scope to access the database context
         using (var scope = factory.Services.CreateScope())
@@ -206,7 +206,7 @@ public class UnitTest_Connections
     public async Task AddUser_ReturnsOk_WhenUserIsAdded()
     {
         // Arrange
-        using var factory = new WebApplicationFactory<Program>();
+        using var factory = new InMemoryWebApplicationFactory();
         using var client = factory.CreateClient();
 
         var request = new CreateUserDTO
@@ -216,7 +216,7 @@ public class UnitTest_Connections
         };
 
         // Act
-        var response = await client.PostAsJsonAsync("/auth/register", request);
+        var response = await client.PostAsJsonAsync("/api/auth/register", request);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -262,7 +262,7 @@ public class UnitTest_Connections
     public async Task ErrorEndpoint_Returns500ProblemDetails()
     {
         // Arrange
-        using var factory = new WebApplicationFactory<Program>();
+        using var factory = new InMemoryWebApplicationFactory();
         using var client = factory.CreateClient();
 
         // Act
@@ -289,7 +289,7 @@ public class UnitTest_Connections
     public async Task UnknownRoute_Returns404ProblemDetails()
     {
         // Arrange
-        using var factory = new WebApplicationFactory<Program>();
+        using var factory = new InMemoryWebApplicationFactory();
         using var client = factory.CreateClient();
 
         // Act

@@ -104,10 +104,20 @@ public class ProductsController : ControllerBase
             throw new ArgumentException("A valid product ID is required.");
         }
 
-        var updated = await _service.UpdateAsync(
-            id,
-            dto,
-            cancellationToken);
+        bool updated;
+
+        try
+        {
+            updated = await _service.UpdateAsync(
+                id,
+                dto,
+                cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // The product was modified by another request after it was loaded.
+            return Conflict();
+        }
 
         if (!updated)
         {
@@ -133,9 +143,19 @@ public class ProductsController : ControllerBase
             throw new ArgumentException("A valid product ID is required.");
         }
 
-        var deleted = await _service.DeleteAsync(
-            id,
-            cancellationToken);
+        bool deleted;
+
+        try
+        {
+            deleted = await _service.DeleteAsync(
+                id,
+                cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // The product was modified by another request after it was loaded.
+            return Conflict();
+        }
 
         if (!deleted)
         {

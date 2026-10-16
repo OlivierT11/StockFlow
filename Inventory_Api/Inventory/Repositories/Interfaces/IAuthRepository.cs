@@ -12,7 +12,7 @@ namespace Inventory.Repositories
 
         Task<string> IssueRefreshTokenAsync(
             User user,
-            CancellationToken cancellationToken = default); 
+            CancellationToken cancellationToken = default);
 
         Task<(User User, string RefreshToken)?> RefreshTokenAsync(
             RefreshRequest request,

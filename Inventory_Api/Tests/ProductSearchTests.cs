@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Tests;
 
-public class UnitTest_ProductSearch
+public class ProductSearchTests
 {
     private static AppDbContext CreateContext()
     {
@@ -168,7 +168,8 @@ public class UnitTest_ProductSearch
         await repo.CreateAsync(new Product { Name = "B", Price = 2m, Stock = 2 });
 
         ProductListDto results = (await repo.GetWithPagerAsync(
-            new ProductSearchQueryDto { 
+            new ProductSearchQueryDto
+            {
                 Name = "A",
                 PageSize = 3,
             }));
@@ -194,7 +195,8 @@ public class UnitTest_ProductSearch
         await repo.CreateAsync(new Product { Name = "B", Price = 2m, Stock = 2 });
 
         ProductListDto results = (await repo.GetWithPagerAsync(
-            new ProductSearchQueryDto { 
+            new ProductSearchQueryDto
+            {
                 MinPrice = 2m,
             }));
 
