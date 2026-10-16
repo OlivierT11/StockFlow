@@ -3,132 +3,59 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Inventory.Models;
 
+/// <summary>
+/// A product of the catalog. Its <see cref="Stock"/> is changed by <see cref="StockMovement"/> records.
+/// </summary>
 public class Product
 {
+    /// <summary>
+    /// Gets or sets the product identifier.
+    /// </summary>
     [Key]
     public int Id { get; set; }
 
+    /// <summary>
+    /// Gets or sets the product name.
+    /// </summary>
     [Required]
     [MaxLength(100)]
     public string Name { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Gets or sets the unit price.
+    /// </summary>
     [Column(TypeName = "decimal(18,2)")]
     public decimal Price { get; set; }
 
+    /// <summary>
+    /// Gets or sets the quantity in stock, all warehouses included.
+    /// </summary>
     public int Stock { get; set; }
 
-    // concurrency token for optimistic concurrency control
+    /// <summary>
+    /// Gets or sets the stock level at or below which the product is reported as low stock.
+    /// </summary>
+    public int LowStockThreshold { get; set; } = 10;
+
+    /// <summary>
+    /// Gets or sets the identifier of the product category, or null if the product is not categorized.
+    /// Nullable so that the products created before categories existed stay valid.
+    /// </summary>
+    public int? CategoryId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the product category.
+    /// </summary>
+    public Category? Category { get; set; }
+
+    /// <summary>
+    /// Gets or sets the stock movements of the product.
+    /// </summary>
+    public ICollection<StockMovement> StockMovements { get; set; } = [];
+
+    /// <summary>
+    /// Concurrency token (SQL Server rowversion) for optimistic concurrency control.
+    /// </summary>
     [Timestamp]
     public byte[] Version { get; set; } = Array.Empty<byte>();
-
-    //[MaxLength(50)]
-    //public string SKU { get; set; } = string.Empty;
-
-    //[MaxLength(500)]
-    //public string? Description { get; set; }
-
-    //public int ReorderLevel { get; set; }
-
-    //public bool IsActive { get; set; } = true;
-
-    //public int CategoryId { get; set; }
-    //public Category Category { get; set; } = null!;
-
-    //public int? SupplierId { get; set; }
-    //public Supplier? Supplier { get; set; }
-
-    //public ICollection<InventoryItem> InventoryItems { get; set; } = [];
-    //public ICollection<StockMovement> StockMovements { get; set; } = [];
 }
-
-//public class Category
-//{
-//    public int Id { get; set; }
-
-//    [Required]
-//    [MaxLength(100)]
-//    public string Name { get; set; } = string.Empty;
-
-//    public ICollection<Product> Products { get; set; } = [];
-//}
-
-//public class Supplier
-//{
-//    public int Id { get; set; }
-
-//    [Required]
-//    [MaxLength(150)]
-//    public string Name { get; set; } = string.Empty;
-
-//    [MaxLength(150)]
-//    public string? ContactName { get; set; }
-
-//    [EmailAddress]
-//    [MaxLength(150)]
-//    public string? Email { get; set; }
-
-//    [MaxLength(30)]
-//    public string? Phone { get; set; }
-
-//    public ICollection<Product> Products { get; set; } = [];
-//}
-
-//public class Warehouse
-//{
-//    public int Id { get; set; }
-
-//    [Required]
-//    [MaxLength(100)]
-//    public string Name { get; set; } = string.Empty;
-
-//    [MaxLength(250)]
-//    public string? Address { get; set; }
-
-//    public ICollection<InventoryItem> InventoryItems { get; set; } = [];
-//    public ICollection<StockMovement> StockMovements { get; set; } = [];
-//}
-
-//public class InventoryItem
-//{
-//    public int Id { get; set; }
-
-//    public int ProductId { get; set; }
-//    public Product Product { get; set; } = null!;
-
-//    public int WarehouseId { get; set; }
-//    public Warehouse Warehouse { get; set; } = null!;
-
-//    public int Stock { get; set; }
-
-//    public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
-//}
-
-//public class StockMovement
-//{
-//    public int Id { get; set; }
-
-//    public int ProductId { get; set; }
-//    public Product Product { get; set; } = null!;
-
-//    public int WarehouseId { get; set; }
-//    public Warehouse Warehouse { get; set; } = null!;
-
-//    public StockMovementType Type { get; set; }
-
-//    public int Stock { get; set; }
-
-//    [MaxLength(250)]
-//    public string? Notes { get; set; }
-
-//    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-//}
-
-//public enum StockMovementType
-//{
-//    Purchase,
-//    Sale,
-//    Return,
-//    Adjustment,
-//    TransferIn,
-//    TransferOut
-//}

@@ -5,6 +5,8 @@ using Inventory.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Net;
+using System.Net.Http.Json;
 
 namespace Tests;
 
@@ -39,7 +41,7 @@ public class ProductSearchTests
 
         var fetched = await repo.GetByIdAsync(created.Id);
         Assert.NotNull(fetched);
-        Assert.Equal("Widget", fetched!.Name);
+        Assert.Equal("Widget", fetched.Name);
         Assert.Equal(9.99m, fetched.Price);
         Assert.Equal(5, fetched.Stock);
     }
@@ -68,7 +70,7 @@ public class ProductSearchTests
     [Fact]
     public async Task GetByIdAsync_WhenCallerCancels_ThrowsOperationCanceledException()
     {
-        using var context = CreateContext();
+        await using var context = CreateContext();
         var logger = NullLogger<ProductRepository>.Instance;
         var cache = new MemoryCache(new MemoryCacheOptions());
         var repo = new ProductRepository(context, logger, cache);
@@ -78,7 +80,7 @@ public class ProductSearchTests
 
         // pass an already-canceled token and verify that the method throws OperationCanceledException
         using var cancellationTokenSource = new CancellationTokenSource();
-        cancellationTokenSource.Cancel();
+        await cancellationTokenSource.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             repo.GetByIdAsync(
@@ -472,7 +474,7 @@ public class ProductSearchTests
     [Fact]
     public async Task GetWithPagerAsync_FilterOnSortByStock_ASC()
     {
-        using var context = CreateContext();
+        await using var context = CreateContext();
         var logger = NullLogger<ProductRepository>.Instance;
         var cache = new MemoryCache(new MemoryCacheOptions());
         var repo = new ProductRepository(context, logger, cache);
@@ -505,7 +507,7 @@ public class ProductSearchTests
     [Fact]
     public async Task GetWithPagerAsync_FilterOnSortByStock_DESC()
     {
-        using var context = CreateContext();
+        await using var context = CreateContext();
         var logger = NullLogger<ProductRepository>.Instance;
         var cache = new MemoryCache(new MemoryCacheOptions());
         var repo = new ProductRepository(context, logger, cache);
@@ -529,6 +531,83 @@ public class ProductSearchTests
         Assert.Equal(5, results.Products[2].Stock);
         Assert.Equal(2, results.Products[3].Stock);
         Assert.Equal(1, results.Products[4].Stock);
+    }
+
+    /// <summary>
+    /// Test to ensure that GetWithPagerAsync returns only the products of the requested category, with its name.
+    /// </summary>
+    /// <returns></returns>
+    [Fact]
+    public async Task GetWithPagerAsync_FilterOnCategory()
+    {
+        using var context = CreateContext();
+        var logger = NullLogger<ProductRepository>.Instance;
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var repo = new ProductRepository(context, logger, cache);
+        var tools = new Category { Name = "Tools" };
+        var food = new Category { Name = "Food" };
+        context.Categories.AddRange(tools, food);
+        await context.SaveChangesAsync();
+        await repo.CreateAsync(new Product { Name = "A", Price = 1m, Stock = 1, CategoryId = tools.Id });
+        await repo.CreateAsync(new Product { Name = "B", Price = 1m, Stock = 1, CategoryId = tools.Id });
+        await repo.CreateAsync(new Product { Name = "C", Price = 1m, Stock = 1, CategoryId = food.Id });
+        await repo.CreateAsync(new Product { Name = "D", Price = 1m, Stock = 1 });
+
+        ProductListDto results = (await repo.GetWithPagerAsync(
+            new ProductSearchQueryDto
+            {
+                CategoryId = tools.Id,
+            }));
+
+        Assert.Equal(2, results.TotalItems);
+        Assert.Equal(["A", "B"], results.Products.Select(p => p.Name));
+        Assert.All(results.Products, p => Assert.Equal("Tools", p.CategoryName));
+    }
+
+    /// <summary>
+    /// Test to ensure that the low stock filter uses the threshold of each product instead of a fixed value.
+    /// </summary>
+    /// <returns></returns>
+    [Fact]
+    public async Task GetWithPagerAsync_FilterOnLowStock_UsesProductThreshold()
+    {
+        using var context = CreateContext();
+        var logger = NullLogger<ProductRepository>.Instance;
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var repo = new ProductRepository(context, logger, cache);
+        await repo.CreateAsync(new Product { Name = "A", Price = 1m, Stock = 3, LowStockThreshold = 2 });
+        await repo.CreateAsync(new Product { Name = "B", Price = 1m, Stock = 3, LowStockThreshold = 3 });
+        await repo.CreateAsync(new Product { Name = "C", Price = 1m, Stock = 30, LowStockThreshold = 50 });
+
+        ProductListDto results = (await repo.GetWithPagerAsync(
+            new ProductSearchQueryDto
+            {
+                LowStockOnly = true,
+            }));
+
+        Assert.Equal(["B", "C"], results.Products.Select(p => p.Name));
+        Assert.Equal(["B", "C"], (await repo.GetLowStockAsync()).Select(p => p.Name)); // lowest stock first
+    }
+
+    /// <summary>
+    /// Test to ensure that the search reads its parameters from the query string
+    /// (without [FromQuery], [ApiController] bound the DTO from the body and every GET got 415 Unsupported Media Type).
+    /// </summary>
+    /// <returns></returns>
+    [Fact]
+    public async Task Api_GetWithPager_ReadsFiltersFromQueryString()
+    {
+        using var factory = new InMemoryWebApplicationFactory();
+        await factory.SeedAsync(context => context.Products.AddRange(
+            new Product { Name = "Hammer", Price = 12m, Stock = 3 },
+            new Product { Name = "Nails", Price = 2m, Stock = 300 }));
+        var (client, _) = await factory.CreateAuthenticatedClientAsync("User");
+
+        var response = await client.GetAsync("/api/v1/products/paged?name=Ham&pageSize=5");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var page = await response.Content.ReadFromJsonAsync<ProductListDto>();
+        Assert.Equal("Hammer", Assert.Single(page!.Products).Name);
     }
 
 }

@@ -2,40 +2,20 @@
 using Inventory.Data;
 using Inventory.DTOs;
 using Inventory.Models;
-using Inventory.Repositories;
 using Inventory.Services;
 using Inventory.Utils;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Json;
-using System.Reflection;
-using System.Security.Claims;
 using System.Text.Json;
 
 namespace Tests;
 
 public class AuthTests
 {
-    private static AppDbContext CreateContext()
-    {
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
-
-        return new AppDbContext(options);
-    }
-
     /// <summary>
     /// Test to ensure that the Login method returns an OkObjectResult with a token when valid credentials are provided.
     /// </summary>
@@ -58,16 +38,8 @@ public class AuthTests
 
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(actionResult);
-        Assert.NotNull(okResult.Value);
-
-        // anonymous object { Token = token } -> reflect to get Token property
-        var tokenProp = okResult.Value
-            .GetType()
-            .GetProperty("access_token", BindingFlags.Public | BindingFlags.Instance);
-
-        Assert.NotNull(tokenProp);
-        var actualToken = tokenProp.GetValue(okResult.Value) as string;
-        Assert.Equal(expectedToken, actualToken);
+        var tokens = Assert.IsType<LoginResponseDto>(okResult.Value);
+        Assert.Equal(expectedToken, tokens.AccessToken);
     }
 
     /// <summary>
@@ -134,7 +106,7 @@ public class AuthTests
         using var client = factory.CreateClient();
 
         var response = await client.PostAsJsonAsync(
-            "/api/auth/refresh",
+            "/api/v1/auth/refresh",
             new RefreshRequest { RefreshToken = existingRefreshToken });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -191,7 +163,7 @@ public class AuthTests
 
         // Act
         var response = await client.PostAsJsonAsync(
-            "/api/auth/refresh",
+            "/api/v1/auth/refresh",
             new RefreshRequest { RefreshToken = revokedRefreshToken });
 
         // Assert
@@ -216,7 +188,7 @@ public class AuthTests
         };
 
         // Act
-        var response = await client.PostAsJsonAsync("/api/auth/register", request);
+        var response = await client.PostAsJsonAsync("/api/v1/auth/register", request);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -255,6 +227,24 @@ public class AuthTests
     }
 
     /// <summary>
+    /// Test to ensure that the profile endpoint returns the user id and email of the token.
+    /// The JWT bearer handler renames the "sub" and "email" claims, so reading them under their JWT names returned null.
+    /// </summary>
+    /// <returns></returns>
+    [Fact]
+    public async Task Profile_ReturnsUserOfToken()
+    {
+        using var factory = new InMemoryWebApplicationFactory();
+        var (client, userId) = await factory.CreateAuthenticatedClientAsync("User");
+
+        var profile = await client.GetFromJsonAsync<ProfileResponseDto>("/api/v1/profile");
+
+        Assert.Equal(userId.ToString(), profile!.UserId);
+        Assert.EndsWith("@example.com", profile.Email);
+        Assert.Equal("User", profile.Role);
+    }
+
+    /// <summary>
     /// Test to ensure that the /error endpoint returns a 500 Internal Server Error response with ProblemDetails.
     /// </summary>
     /// <returns></returns>
@@ -274,7 +264,7 @@ public class AuthTests
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
 
         Assert.NotNull(problem);
-        Assert.Equal(500, problem!.Status);
+        Assert.Equal(500, problem.Status);
         Assert.Equal("Une erreur interne est survenue.", problem.Title);
     }
 
@@ -301,7 +291,7 @@ public class AuthTests
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
 
         Assert.NotNull(problem);
-        Assert.Equal(404, problem!.Status);
+        Assert.Equal(404, problem.Status);
     }
 
 }

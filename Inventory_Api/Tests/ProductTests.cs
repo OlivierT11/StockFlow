@@ -3,7 +3,7 @@ using Inventory.Data;
 using Inventory.DTOs;
 using Inventory.Models;
 using Inventory.Repositories;
-using Inventory.Services;
+using Inventory.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -52,7 +52,7 @@ public class ProductTests
 
         var fetched = await repo.GetByIdAsync(created.Id);
         Assert.NotNull(fetched);
-        Assert.Equal("Widget", fetched!.Name);
+        Assert.Equal("Widget", fetched.Name);
         Assert.Equal(9.99m, fetched.Price);
         Assert.Equal(5, fetched.Stock);
     }
@@ -81,7 +81,7 @@ public class ProductTests
     [Fact]
     public async Task GetByIdAsync_WhenCallerCancels_ThrowsOperationCanceledException()
     {
-        using var context = CreateContext();
+        await using var context = CreateContext();
         var logger = NullLogger<ProductRepository>.Instance;
         var cache = new MemoryCache(new MemoryCacheOptions());
         var repo = new ProductRepository(context, logger, cache);
@@ -91,7 +91,7 @@ public class ProductTests
 
         // pass an already-canceled token and verify that the method throws OperationCanceledException
         using var cancellationTokenSource = new CancellationTokenSource();
-        cancellationTokenSource.Cancel();
+        await cancellationTokenSource.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             repo.GetByIdAsync(
@@ -106,7 +106,7 @@ public class ProductTests
     [Fact]
     public async Task GetAllAsync_ReturnsAllProducts()
     {
-        using var context = CreateContext();
+        await using var context = CreateContext();
         var logger = NullLogger<ProductRepository>.Instance;
         var cache = new MemoryCache(new MemoryCacheOptions());
         var repo = new ProductRepository(context, logger, cache);
@@ -142,27 +142,17 @@ public class ProductTests
     [Fact]
     public async Task GetAllAsync_WhenCallerCancels_ThrowsOperationCanceledException()
     {
-        using var context = CreateContext();
+        await using var context = CreateContext();
         var logger = NullLogger<ProductRepository>.Instance;
         var cache = new MemoryCache(new MemoryCacheOptions());
         var repo = new ProductRepository(context, logger, cache);
 
         using var cts = new CancellationTokenSource();
-        cts.Cancel();
+        await cts.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             repo.GetAllAsync(cts.Token));
     }
-
-    /// <summary>
-    /// Do not test logging unless logging itself is a requirement.
-    /// </summary>
-    /// <returns></returns>
-    //[Fact]
-    //public async Task GetAllAsync_LoggingTest()
-    //{
-    //    //empty test to ensure that logging does not throw exceptions
-    //}
 
     /// <summary>
     /// Test to ensure that updating an existing product correctly updates its fields in the repository.
@@ -183,11 +173,6 @@ public class ProductTests
 
         var updated = await repo.UpdateAsync(1, created);
         Assert.True(updated);
-        //var updated = await repo.UpdateAsync(created);
-        //Assert.NotNull(updated);
-        //Assert.Equal("New", updated!.Name);
-        //Assert.Equal(2m, updated.Price);
-        //Assert.Equal(3, updated.Stock);
     }
 
     /// <summary>
@@ -231,7 +216,7 @@ public class ProductTests
         created.Stock = 3;
 
         using var cancellationTokenSource = new CancellationTokenSource();
-        cancellationTokenSource.Cancel();
+        await cancellationTokenSource.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             repo.UpdateAsync(
@@ -362,7 +347,7 @@ public class ProductTests
         });
 
         using var cancellationTokenSource = new CancellationTokenSource();
-        cancellationTokenSource.Cancel();
+        await cancellationTokenSource.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             repo.DeleteAsync(
@@ -503,7 +488,7 @@ public class ProductTests
 
         var fetched = await reader.GetByIdAsync(created.Id);
         Assert.NotNull(fetched);
-        Assert.Equal("New", fetched!.Name);
+        Assert.Equal("New", fetched.Name);
         Assert.Equal(2m, fetched.Price);
         Assert.Equal(3, fetched.Stock);
     }
