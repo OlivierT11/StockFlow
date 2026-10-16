@@ -97,7 +97,7 @@ namespace Inventory.Repositories
                 });
 
                 if (!string.IsNullOrEmpty(searchParams.Name))
-                { 
+                {
                     result = result.Where(p => p.Name.Contains(searchParams.Name));
                 }
 
@@ -286,7 +286,8 @@ namespace Inventory.Repositories
         /// </summary>
         /// <param name="product">The product to update.</param>
         /// <param name="cancellationToken">The cancellation token (set as default if the method is called outside a controller).</param>
-        /// <returns>A boolean indicating whether the product was updated.</returns>
+        /// <returns>A boolean indicating whether the product was updated (false if it does not exist or was deleted by another request).</returns>
+        /// <exception cref="DbUpdateConcurrencyException">The product was modified by another request after it was loaded.</exception>
         public async Task<bool> UpdateAsync(
             int id,
             Product product,
@@ -316,7 +317,32 @@ namespace Inventory.Repositories
 
                 // Console.WriteLine(updatedProduct.State); // DEBUG: Log the state of the entity after updating
 
-                await _context.SaveChangesAsync(linkedCts.Token);
+                try
+                {
+                    await _context.SaveChangesAsync(linkedCts.Token);
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    // Another request deleted or modified the product after it was loaded.
+                    var entry = _context.Entry(updatedProduct);
+                    var databaseValues = await entry.GetDatabaseValuesAsync(linkedCts.Token);
+
+                    // Detach it so a later SaveChanges on this context does not retry the update.
+                    entry.State = EntityState.Detached;
+
+                    if (databaseValues is null)
+                    {
+                        _logger.LogInformation(
+                            "Update product was skipped: the product was deleted by another request");
+
+                        return false;
+                    }
+
+                    _logger.LogInformation(
+                        "Update product was rejected: the product was modified by another request");
+
+                    throw;
+                }
 
                 _cache.Remove($"product:{id}");
 
@@ -343,7 +369,8 @@ namespace Inventory.Repositories
         /// </summary>
         /// <param name="id">The ID of the product to delete.</param>
         /// <param name="cancellationToken">The cancellation token (set as default if the method is called outside a controller).</param>
-        /// <returns>A boolean indicating whether the product was deleted.</returns>
+        /// <returns>A boolean indicating whether the product was deleted (false if it does not exist or was already deleted by another request).</returns>
+        /// <exception cref="DbUpdateConcurrencyException">The product was modified by another request after it was loaded.</exception>
         public async Task<bool> DeleteAsync(
             int id,
             CancellationToken cancellationToken = default)
@@ -365,7 +392,33 @@ namespace Inventory.Repositories
                 }
 
                 _context.Products.Remove(product);
-                await _context.SaveChangesAsync(linkedCts.Token);
+
+                try
+                {
+                    await _context.SaveChangesAsync(linkedCts.Token);
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    // Another request deleted or modified the product after it was loaded.
+                    var entry = _context.Entry(product);
+                    var databaseValues = await entry.GetDatabaseValuesAsync(linkedCts.Token);
+
+                    // Detach it so a later SaveChanges on this context does not retry the delete.
+                    entry.State = EntityState.Detached;
+
+                    if (databaseValues is null)
+                    {
+                        _logger.LogInformation(
+                            "Delete product was skipped: the product was already deleted by another request");
+
+                        return false;
+                    }
+
+                    _logger.LogInformation(
+                        "Delete product was rejected: the product was modified by another request");
+
+                    throw;
+                }
 
                 _cache.Remove($"product:{id}");
 

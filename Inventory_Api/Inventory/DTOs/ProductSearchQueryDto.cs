@@ -19,14 +19,14 @@ namespace Inventory.DTOs
         public decimal MinPrice { get; set; } = 0m;
 
         [Range(typeof(decimal), "0", "1000000", ErrorMessage = "The requested max price exceeds the maximum allowed value.")]
-        public decimal MaxPrice { get; set; } = 1000000m; 
+        public decimal MaxPrice { get; set; } = 1000000m;
 
-        public bool LowStockOnly { get; set; } = false; 
+        public bool LowStockOnly { get; set; } = false;
 
         [RegularExpression("name|price|stock", ErrorMessage = "SortBy must be 'name', 'price', or 'stock'.")]
         public string SortBy { get; set; } = "name";
 
         [RegularExpression("asc|desc", ErrorMessage = "SortDirection must be 'asc' or 'desc'.")]
-        public string SortDirection { get; set; } = "asc"; 
+        public string SortDirection { get; set; } = "asc";
     }
 }

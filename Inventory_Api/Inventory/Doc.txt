@@ -93,7 +93,7 @@ puis, pour lancer les tests:
 dotnet test Inventory.slnx
 pour lancer un seul test de la liste: 
 voir la liste des tests: dotnet test Inventory.slnx --list-tests
-puis exécuter l'un des tests: dotnet test Inventory.slnx --filter "Tests.UnitTest1.GetAll_ReturnsAllProducts"
+puis exécuter l'un des tests: dotnet test Inventory.slnx --filter "Tests.ProductTests.GetAll_ReturnsAllProducts"
     équivalent à cliquer sur le test dans visuel studio (test.cs) ou dans test explorer
 
 Pour lancer les tests depuis VS: 

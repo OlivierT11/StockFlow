@@ -198,7 +198,7 @@ app.UseAuthorization();
 
 // Custom error handling endpoint for centralized exception handling (ProblemDetails). Rather than logging technical errors in every controller.
 app.UseExceptionHandler("/error");
-app.UseStatusCodePages(); 
+app.UseStatusCodePages();
 app.Map("/error", () =>
     Results.Problem(
         statusCode: StatusCodes.Status500InternalServerError, // An unhandled error will always return a 500.
