@@ -116,6 +116,8 @@ namespace Inventory.Repositories
             var user = await _user.FindAsync([stored.UserId], cancellationToken);
             if (user is null)
                 return null;
+            if(!user.IsActive)
+                return null;
 
             // Rotation: Revoke the old refresh token and issue a new one
             stored.RevokedAtUtc = DateTime.UtcNow;

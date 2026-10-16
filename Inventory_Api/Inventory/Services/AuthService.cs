@@ -73,6 +73,11 @@ namespace Inventory.Services
                 return null;
             }
 
+            if (result.IsActive == false)
+            {
+                return null;
+            }
+
 
             //if (user != null)
             //{

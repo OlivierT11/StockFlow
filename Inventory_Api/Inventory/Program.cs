@@ -139,6 +139,8 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddSingleton<TokenRevocationService>(); // singleton service for revoking JWT tokens. This must be a singleton so that the revoked tokens are shared across all requests and users.
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();

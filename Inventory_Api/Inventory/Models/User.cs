@@ -21,7 +21,9 @@ namespace Inventory.Models
 
         [Required]
         [MaxLength(255)]
-        public string Role { get; set; } = "User";
+        public string Role { get; set; } = "user";
+
+        public bool IsActive { get; set; } = true;
 
         // concurrency token for optimistic concurrency control
         [Timestamp]
