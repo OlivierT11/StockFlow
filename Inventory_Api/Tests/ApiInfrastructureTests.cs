@@ -1,4 +1,8 @@
+using Inventory.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -137,6 +141,32 @@ public class ApiInfrastructureTests
 
         // XML comments are included (descriptions for the generated client).
         Assert.False(string.IsNullOrWhiteSpace(dashboard.GetProperty("summary").GetString()));
+    }
+
+    /// <summary>
+    /// Test to ensure that an unexpected exception, which ApiExceptionHandler leaves alone (it only handles the business
+    /// and concurrency exceptions), ends on the /error endpoint: a 500 ProblemDetails that does not reveal the exception message.
+    /// </summary>
+    [Fact]
+    public async Task UnexpectedException_Returns500ProblemDetailsWithoutExceptionMessage()
+    {
+        var service = new Mock<IDashboardService>();
+        service
+            .Setup(s => s.GetAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Server=prod-sql;Password=secret"));
+
+        using var baseFactory = new InMemoryWebApplicationFactory();
+        using var factory = baseFactory.WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services => services.AddScoped(_ => service.Object)));
+        var (client, _) = await factory.CreateAuthenticatedClientAsync();
+
+        var response = await client.GetAsync("/api/v1/dashboard");
+
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("secret", body);
+        var problem = JsonSerializer.Deserialize<ProblemDetails>(body, JsonSerializerOptions.Web);
+        Assert.Equal("Une erreur interne est survenue.", problem!.Title);
     }
 
     /// <summary>

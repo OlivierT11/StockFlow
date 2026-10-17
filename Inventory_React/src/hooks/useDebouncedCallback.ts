@@ -1,6 +1,9 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
-/** Returns a stable function that calls the latest `fn` once `ms` have passed without a new call. */
+/**
+ * Returns a stable function that calls the latest `fn` once `ms` have passed without a new call.
+ * Its `cancel()` drops a call that has not run yet.
+ */
 export function useDebouncedCallback<A extends unknown[]>(fn: (...args: A) => void, ms: number) {
     const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const latest = useRef(fn);
@@ -10,11 +13,12 @@ export function useDebouncedCallback<A extends unknown[]>(fn: (...args: A) => vo
     });
     useEffect(() => () => clearTimeout(timer.current), []);
 
-    return useCallback(
-        (...args: A) => {
+    return useMemo(() => {
+        const debounced = (...args: A) => {
             clearTimeout(timer.current);
             timer.current = setTimeout(() => latest.current(...args), ms);
-        },
-        [ms],
-    );
+        };
+        debounced.cancel = () => clearTimeout(timer.current);
+        return debounced;
+    }, [ms]);
 }

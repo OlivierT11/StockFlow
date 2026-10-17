@@ -68,8 +68,17 @@ namespace Inventory.Controllers
         [HttpPost("refresh")]
         [ProducesResponseType<TokenResponseDto>(StatusCodes.Status200OK)]
         [ProducesResponseType<MessageResponseDto>(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Refresh(RefreshRequest request, CancellationToken cancellationToken = default)
         {
+            // RefreshRequest has no validation attribute: without this check, a blank token reaches the service,
+            // whose ArgumentException ends as a 500 on /error.
+            if (string.IsNullOrWhiteSpace(request.RefreshToken))
+            {
+                ModelState.AddModelError(nameof(request.RefreshToken), "The refresh token is required.");
+                return ValidationProblem(ModelState);
+            }
+
             string[] tokens = await _service.RefreshTokenAsync(request, cancellationToken);
 
             if (tokens is null)

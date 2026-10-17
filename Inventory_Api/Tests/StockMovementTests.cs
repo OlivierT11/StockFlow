@@ -15,6 +15,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using System.ComponentModel.DataAnnotations;
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Claims;
@@ -280,6 +281,25 @@ public class StockMovementTests
     }
 
     /// <summary>
+    /// Test to ensure that CreateAsync gives up when its timeout expires, logs it as a timeout, and saves nothing.
+    /// </summary>
+    [Fact]
+    public async Task CreateAsync_WhenTimeoutExpires_ThrowsLogsTimeoutAndSavesNothing()
+    {
+        using var database = new SqliteTestDatabase();
+        var ids = await SeedAsync(database, stock: 10);
+
+        await using var context = database.CreateContext();
+        var logger = new ListLogger<StockMovementRepository>();
+        var repo = new StockMovementRepository(context, logger, new MemoryCache(new MemoryCacheOptions()), TimeoutAssert.Expired);
+
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () =>
+            repo.CreateAsync(Movement(ids, StockMovementType.In, 1)));
+
+        Assert.Equal((10, 0), await ReadStateAsync(database, ids.ProductId));
+    }
+
+    /// <summary>
     /// Test to ensure that a movement evicts the cached product and dashboard, so they do not show the old stock.
     /// </summary>
     [Fact]
@@ -377,6 +397,55 @@ public class StockMovementTests
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             CreateRepository(context).GetPagedAsync(new StockMovementQueryDto(), cancellationToken: cts.Token));
+    }
+
+    /// <summary>
+    /// Test to ensure that GetPagedAsync gives up when its timeout expires, and logs it as a timeout.
+    /// </summary>
+    [Fact]
+    public async Task GetPagedAsync_WhenTimeoutExpires_ThrowsAndLogsTimeout()
+    {
+        using var database = new SqliteTestDatabase();
+        await using var context = database.CreateContext();
+        var logger = new ListLogger<StockMovementRepository>();
+        var repo = new StockMovementRepository(context, logger, new MemoryCache(new MemoryCacheOptions()), TimeoutAssert.Expired);
+
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () =>
+            repo.GetPagedAsync(new StockMovementQueryDto(), productId: null));
+    }
+
+    // ---------------------------------------------------------------------
+    // DTO validation
+    // ---------------------------------------------------------------------
+
+    /// <summary>
+    /// Test to ensure that the quantity rule depends on the type: In and Out need a positive quantity,
+    /// an Adjustment needs a non-zero signed quantity.
+    /// </summary>
+    [Theory]
+    [InlineData(StockMovementType.In, 5, true)]
+    [InlineData(StockMovementType.In, 0, false)]
+    [InlineData(StockMovementType.Out, 4, true)]
+    [InlineData(StockMovementType.Out, -1, false)]
+    [InlineData(StockMovementType.Adjustment, -3, true)]
+    [InlineData(StockMovementType.Adjustment, 2, true)]
+    [InlineData(StockMovementType.Adjustment, 0, false)]
+    public void CreateDto_ValidatesQuantityAccordingToType(StockMovementType type, int quantity, bool expectedValid)
+    {
+        var dto = new StockMovementCreateDto { ProductId = 1, WarehouseId = 1, Type = type, Quantity = quantity };
+        var errors = new List<ValidationResult>();
+
+        var valid = Validator.TryValidateObject(
+            dto,
+            new ValidationContext(dto),
+            errors,
+            validateAllProperties: true);
+
+        Assert.Equal(expectedValid, valid);
+        if (!expectedValid)
+        {
+            Assert.Equal(nameof(StockMovementCreateDto.Quantity), Assert.Single(Assert.Single(errors).MemberNames));
+        }
     }
 
     // ---------------------------------------------------------------------
@@ -681,6 +750,46 @@ public class StockMovementTests
 
         var unknownProduct = await client.GetAsync("/api/v1/products/999/movements");
         Assert.Equal(HttpStatusCode.NotFound, unknownProduct.StatusCode);
+    }
+
+    /// <summary>
+    /// Test to ensure that GET /api/v1/stock/movements reads the warehouse and the period from the query string,
+    /// with "from" inclusive and "to" exclusive. A date without time zone is taken as UTC, a date in UTC ("Z") stays UTC
+    /// (model binding turns it into a local time, which the service converts back).
+    /// </summary>
+    [Fact]
+    public async Task Api_GetMovements_FiltersByWarehouseAndPeriod()
+    {
+        using var factory = new InMemoryWebApplicationFactory();
+        var (client, userId) = await factory.CreateAuthenticatedClientAsync("User");
+        var product = new Product { Name = "Widget", Price = 2m, Stock = 100 };
+        var main = new Warehouse { Name = "Main" };
+        var other = new Warehouse { Name = "Other" };
+        await factory.SeedAsync(context => context.AddRange(product, main, other));
+
+        StockMovement At(Warehouse warehouse, string date, int quantity) => new()
+        {
+            ProductId = product.Id,
+            WarehouseId = warehouse.Id,
+            UserId = userId,
+            Type = StockMovementType.In,
+            Quantity = quantity,
+            Date = DateTime.Parse(date, null, System.Globalization.DateTimeStyles.AdjustToUniversal)
+        };
+
+        await factory.SeedAsync(context => context.StockMovements.AddRange(
+            At(main, "2026-09-30T23:59:59Z", 1),  // before the period
+            At(main, "2026-10-01T00:00:00Z", 2),  // first instant of the period: included
+            At(main, "2026-10-01T23:59:59Z", 3),  // included
+            At(main, "2026-10-02T00:00:00Z", 4),  // "to" is exclusive
+            At(other, "2026-10-01T12:00:00Z", 5))); // other warehouse
+
+        var page = await client.GetFromJsonAsync<StockMovementListDto>(
+            $"/api/v1/stock/movements?warehouseId={main.Id}&from=2026-10-01&to=2026-10-02T00:00:00Z", ApiJson);
+
+        Assert.Equal(2, page!.TotalItems);
+        Assert.Equal([3, 2], page.Movements.Select(m => m.Quantity)); // most recent first
+        Assert.All(page.Movements, m => Assert.Equal("Main", m.WarehouseName));
     }
 
     /// <summary>

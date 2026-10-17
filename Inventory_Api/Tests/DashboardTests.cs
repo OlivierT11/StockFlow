@@ -168,6 +168,22 @@ public class DashboardTests
             CreateRepository(context, new MemoryCache(new MemoryCacheOptions())).GetAsync(cts.Token));
     }
 
+    /// <summary>
+    /// Test to ensure that GetAsync gives up when its timeout expires, logs it as a timeout, and caches nothing.
+    /// </summary>
+    [Fact]
+    public async Task GetAsync_WhenTimeoutExpires_ThrowsAndLogsTimeout()
+    {
+        await using var context = CreateContext();
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var logger = new ListLogger<DashboardRepository>();
+        var repo = new DashboardRepository(context, logger, cache, TimeoutAssert.Expired);
+
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.GetAsync());
+
+        Assert.False(cache.TryGetValue(CacheKeys.Dashboard, out _));
+    }
+
     // ---------------------------------------------------------------------
     // Integration tests: movement then dashboard
     // ---------------------------------------------------------------------

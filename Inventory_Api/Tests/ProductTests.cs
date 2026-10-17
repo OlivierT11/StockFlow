@@ -11,6 +11,8 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using System.Net;
+using System.Net.Http.Json;
 
 namespace Tests;
 
@@ -355,6 +357,55 @@ public class ProductTests
                 cancellationTokenSource.Token));
     }
 
+    /// <summary>
+    /// Test to ensure that the methods not covered by the tests above also respect cancellation tokens,
+    /// and log a cancellation by the caller as information.
+    /// </summary>
+    /// <returns></returns>
+    [Fact]
+    public async Task OtherMethods_WhenCallerCancels_ThrowAndLogCancellation()
+    {
+        using var context = CreateContext();
+        var logger = new ListLogger<ProductRepository>();
+        var repo = new ProductRepository(context, logger, new MemoryCache(new MemoryCacheOptions()));
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => repo.GetWithPagerAsync(new ProductSearchQueryDto(), cts.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => repo.CreateAsync(new Product { Name = "X", Price = 1m, Stock = 1 }, cts.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => repo.GetLowStockAsync(cts.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => repo.HasMovementsAsync(1, cts.Token));
+
+        Assert.Equal(4, logger.Entries.Count);
+        Assert.All(logger.Entries, entry => Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Information, entry.Level));
+    }
+
+    /// <summary>
+    /// Test to ensure that every repository method gives up when its timeout expires,
+    /// and logs it as a timeout (warning) rather than as a cancellation by the caller.
+    /// </summary>
+    /// <returns></returns>
+    [Fact]
+    public async Task Methods_WhenTimeoutExpires_ThrowAndLogTimeout()
+    {
+        using var context = CreateContext();
+        var created = await new ProductRepository(context, NullLogger<ProductRepository>.Instance, new MemoryCache(new MemoryCacheOptions()))
+            .CreateAsync(new Product { Name = "Widget", Price = 1m, Stock = 1 });
+
+        // A new cache: GetByIdAsync must go to the database to time out.
+        var logger = new ListLogger<ProductRepository>();
+        var repo = new ProductRepository(context, logger, new MemoryCache(new MemoryCacheOptions()), TimeoutAssert.Expired);
+
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.GetAllAsync());
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.GetWithPagerAsync(new ProductSearchQueryDto()));
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.GetByIdAsync(created.Id));
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.CreateAsync(new Product { Name = "X", Price = 1m, Stock = 1 }));
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.UpdateAsync(created.Id, new Product { Name = "X", Price = 1m, Stock = 1 }));
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.DeleteAsync(created.Id));
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.GetLowStockAsync());
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.HasMovementsAsync(created.Id));
+    }
+
     // ---------------------------------------------------------------------
     // Concurrency tests
     // Product.Version is a [Timestamp] concurrency token: EF adds it to the WHERE clause of
@@ -402,29 +453,6 @@ public class ProductTests
             }
 
             return ValueTask.FromResult(result);
-        }
-    }
-
-    /// <summary>
-    /// Runs a callback once, just before the intercepted context writes to the database.
-    /// Used to simulate another request committing a change between the repository's read and its SaveChanges.
-    /// </summary>
-    private sealed class BeforeSaveInterceptor(Func<Task> onSaving) : SaveChangesInterceptor
-    {
-        private Func<Task>? _onSaving = onSaving;
-
-        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
-            DbContextEventData eventData,
-            InterceptionResult<int> result,
-            CancellationToken cancellationToken = default)
-        {
-            var callback = Interlocked.Exchange(ref _onSaving, null);
-            if (callback is not null)
-            {
-                await callback();
-            }
-
-            return result;
         }
     }
 
@@ -762,4 +790,66 @@ public class ProductTests
         Assert.IsType<NotFoundResult>(result);
     }
 
+    // ---------------------------------------------------------------------
+    // API tests
+    // ---------------------------------------------------------------------
+
+    /// <summary>
+    /// Test to ensure that an update changes the category and the low stock threshold, and that a GET right after it
+    /// returns the new values (the cached product is evicted), and that an unknown product returns 404.
+    /// </summary>
+    /// <returns></returns>
+    [Fact]
+    public async Task Api_UpdateProduct_ChangesCategoryAndThreshold_AndIsReadBackAtOnce()
+    {
+        using var factory = new InMemoryWebApplicationFactory();
+        var tools = new Category { Name = "Tools" };
+        var garden = new Category { Name = "Garden" };
+        await factory.SeedAsync(context => context.Categories.AddRange(tools, garden));
+        var (admin, _) = await factory.CreateAuthenticatedClientAsync();
+
+        var create = await admin.PostAsJsonAsync("/api/v1/products",
+            new { name = "Shovel", price = 12m, stock = 3, lowStockThreshold = 5, categoryId = tools.Id });
+        var id = (await create.Content.ReadFromJsonAsync<ProductResponseDto>())!.Id;
+
+        // Cached by this read.
+        Assert.Equal("Tools", (await admin.GetFromJsonAsync<ProductResponseDto>($"/api/v1/products/{id}"))!.CategoryName);
+
+        var update = await admin.PutAsJsonAsync($"/api/v1/products/{id}",
+            new { id, name = "Shovel", price = 15m, stock = 3, lowStockThreshold = 2, categoryId = garden.Id });
+        Assert.Equal(HttpStatusCode.NoContent, update.StatusCode);
+
+        var fetched = await admin.GetFromJsonAsync<ProductResponseDto>($"/api/v1/products/{id}");
+        Assert.Equal(garden.Id, fetched!.CategoryId);
+        Assert.Equal("Garden", fetched.CategoryName);
+        Assert.Equal(2, fetched.LowStockThreshold);
+        Assert.Equal(15m, fetched.Price);
+
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync("/api/v1/products/999")).StatusCode);
+    }
+
+    /// <summary>
+    /// Test to ensure that an id that cannot exist (0 or negative) is rejected as a client error (400 ProblemDetails)
+    /// on PUT and DELETE, not as a server error.
+    /// </summary>
+    /// <returns></returns>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task Api_UpdateOrDelete_WithInvalidId_ReturnsBadRequest(int id)
+    {
+        using var factory = new InMemoryWebApplicationFactory();
+        var (admin, _) = await factory.CreateAuthenticatedClientAsync();
+
+        // A valid id in the body (validated by ProductUpdateDto): only the id of the route is invalid.
+        var update = await admin.PutAsJsonAsync($"/api/v1/products/{id}", new { id = 1, name = "X", price = 1m, stock = 1 });
+        var delete = await admin.DeleteAsync($"/api/v1/products/{id}");
+
+        foreach (var response in new[] { update, delete })
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
+            Assert.True(problem!.Errors.ContainsKey("id"));
+        }
+    }
 }

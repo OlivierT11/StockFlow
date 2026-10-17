@@ -336,6 +336,28 @@ public class ProductSearchTests
     }
 
     /// <summary>
+    /// Test to ensure that a sort field the repository does not know (the API rejects it, but the repository can be
+    /// called directly) falls back to the id (creation order), so that paging stays stable.
+    /// </summary>
+    /// <returns></returns>
+    [Fact]
+    public async Task GetWithPagerAsync_WithUnknownSortField_SortsById()
+    {
+        using var context = CreateContext();
+        var repo = new ProductRepository(context, NullLogger<ProductRepository>.Instance, new MemoryCache(new MemoryCacheOptions()));
+        await repo.CreateAsync(new Product { Name = "C", Price = 3m, Stock = 1 });
+        await repo.CreateAsync(new Product { Name = "A", Price = 1m, Stock = 3 });
+        await repo.CreateAsync(new Product { Name = "B", Price = 2m, Stock = 2 });
+
+        var firstPage = await repo.GetWithPagerAsync(new ProductSearchQueryDto { SortBy = "unknown", AskedPage = 1, PageSize = 2 });
+        var secondPage = await repo.GetWithPagerAsync(new ProductSearchQueryDto { SortBy = "unknown", AskedPage = 2, PageSize = 2 });
+
+        Assert.Equal(["C", "A"], firstPage.Products.Select(p => p.Name));
+        Assert.Equal(["B"], secondPage.Products.Select(p => p.Name));
+        Assert.Equal(2, firstPage.TotalPages);
+    }
+
+    /// <summary>
     /// Test to ensure that GetWithPagerAsync returns the correct products when filtering by name in ascending order.
     /// </summary>
     /// <returns></returns>

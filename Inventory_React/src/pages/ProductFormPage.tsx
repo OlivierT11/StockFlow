@@ -229,13 +229,16 @@ export default function ProductFormPage() {
     const { id: idParam } = useParams();
     const editing = idParam !== undefined;
     const id = Number(idParam);
-    usePageTitle(editing ? "Modifier le produit" : "Nouveau produit");
     const [reloads, setReloads] = useState(0);
 
     const categories = useQuery("categories", (signal) => categoriesApi.list(signal));
     const product = useQuery(`product-${id}`, (signal) => productsApi.get(id, signal), { enabled: editing && id > 0 });
 
-    if (editing && (!(id > 0) || (product.error instanceof ApiError && product.error.status === 404))) return <NotFoundPage />;
+    // Set here rather than only in NotFoundPage: a parent's effect runs after its child's and would win.
+    const notFound = editing && (!(id > 0) || (product.error instanceof ApiError && product.error.status === 404));
+    usePageTitle(notFound ? "Page introuvable" : editing ? "Modifier le produit" : "Nouveau produit");
+
+    if (notFound) return <NotFoundPage />;
 
     const p = product.data;
     const head = (

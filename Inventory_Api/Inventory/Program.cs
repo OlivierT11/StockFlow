@@ -317,7 +317,7 @@ app.UseSerilogRequestLogging(options =>
 
         return httpContext.Request.Path.StartsWithSegments("/health") ? LogEventLevel.Verbose : LogEventLevel.Information;
     };
-    
+
 });
 
 // Apply Entity Framework Core database migrations automatically in the "Docker" environment.

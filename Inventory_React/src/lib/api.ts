@@ -70,7 +70,8 @@ export class ApiError extends Error {
     }
 }
 
-export const isAbort = (e: unknown) => e instanceof DOMException && e.name === "AbortError";
+// By name rather than instanceof DOMException: the error can come from another realm (fetch polyfills, jsdom).
+export const isAbort = (e: unknown) => typeof e === "object" && e !== null && (e as { name?: unknown }).name === "AbortError";
 
 /** "Name", "$.price" or "ProductId" → "name", "price", "productId". */
 function fieldKey(key: string): string {
@@ -78,18 +79,27 @@ function fieldKey(key: string): string {
     return k.charAt(0).toLowerCase() + k.slice(1);
 }
 
+/** JSON when it parses, the raw text otherwise (e.g. BadRequest("Missing refresh token.") is text/plain). */
+async function readBody(res: Response): Promise<unknown> {
+    let text: string;
+    try {
+        text = await res.text();
+    } catch {
+        return null;
+    }
+    if (!text) return null;
+    try {
+        return JSON.parse(text);
+    } catch {
+        return text;
+    }
+}
+
 async function toApiError(res: Response): Promise<ApiError> {
     const retryHeader = res.headers.get("Retry-After");
     const retryAfter = retryHeader ? Number(retryHeader) || undefined : undefined;
-    let body: unknown = null;
-    try {
-        const text = await res.text();
-        body = text ? JSON.parse(text) : null;
-        if (body === null && text) body = { message: text };
-    } catch {
-        body = null;
-    }
-    const b = (body ?? {}) as { title?: string; detail?: string; message?: string; errors?: Record<string, string[]> };
+    const body = await readBody(res);
+    const b = (typeof body === "string" ? { message: body } : (body ?? {})) as { title?: string; detail?: string; message?: string; errors?: Record<string, string[]> };
     const fieldErrors: Record<string, string> = {};
     if (b.errors) {
         for (const [key, messages] of Object.entries(b.errors)) {

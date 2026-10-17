@@ -6,6 +6,7 @@ type QueryState<T> = {
     data?: T;
     dataKey?: string;
     error?: unknown;
+    errorKey?: string;
     /** Identifies the request that produced data / error (key + write version + reload count). */
     requestId?: string;
 };
@@ -43,15 +44,15 @@ export function useQuery<T>(
             (data) => setState({ data, dataKey: key, requestId }),
             (error: unknown) => {
                 if (isAbort(error) || controller.signal.aborted) return;
-                setState((s) => ({ ...s, error, dataKey: key, requestId }));
+                // data stays tagged with its own key: a failed new key must not show the previous one's data.
+                setState((s) => ({ ...s, error, errorKey: key, requestId }));
             },
         );
         return () => controller.abort();
     }, [key, requestId, enabled]);
 
-    const sameKey = state.dataKey === key;
-    const data = sameKey || keepPrevious ? state.data : undefined;
-    const error = sameKey ? state.error : undefined;
+    const data = state.dataKey === key || keepPrevious ? state.data : undefined;
+    const error = state.errorKey === key ? state.error : undefined;
     return {
         data,
         error,

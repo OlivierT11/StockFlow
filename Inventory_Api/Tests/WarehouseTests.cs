@@ -7,6 +7,8 @@ using Inventory.Repositories;
 using Inventory.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using System.Net;
@@ -132,6 +134,86 @@ public class WarehouseTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => repo.HasMovementsAsync(created.Id, cts.Token));
     }
 
+    /// <summary>
+    /// Test to ensure that every repository method gives up when its timeout expires,
+    /// and logs it as a timeout (warning) rather than as a cancellation by the caller.
+    /// </summary>
+    [Fact]
+    public async Task Methods_WhenTimeoutExpires_ThrowAndLogTimeout()
+    {
+        await using var context = CreateContext();
+        var created = await CreateRepository(context).CreateAsync(new Warehouse { Name = "Main" });
+        var logger = new ListLogger<WarehouseRepository>();
+        var repo = new WarehouseRepository(context, logger, TimeoutAssert.Expired);
+
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.GetAllAsync());
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.GetByIdAsync(created.Id));
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.ExistsAsync(created.Id));
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.CreateAsync(new Warehouse { Name = "X" }));
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.UpdateAsync(created.Id, new Warehouse { Name = "X" }));
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.DeleteAsync(created.Id));
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.HasMovementsAsync(created.Id));
+    }
+
+    /// <summary>
+    /// Runs an update or a delete while another request deletes the same warehouse between the repository's read and its write.
+    /// Checks that the stale entity is detached and that the warehouse stays deleted, then returns the result of the write.
+    /// </summary>
+    private static async Task<bool> WriteWhileWarehouseIsDeletedConcurrentlyAsync(
+        Func<WarehouseRepository, int, Task<bool>> write)
+    {
+        var root = new InMemoryDatabaseRoot();
+        var databaseName = Guid.NewGuid().ToString();
+        AppDbContext CreateSharedContext(params IInterceptor[] interceptors) => new(
+            new DbContextOptionsBuilder<AppDbContext>()
+                .UseInMemoryDatabase(databaseName, root)
+                .AddInterceptors(interceptors)
+                .Options);
+
+        int id;
+        await using (var setupContext = CreateSharedContext())
+        {
+            id = (await CreateRepository(setupContext).CreateAsync(new Warehouse { Name = "Main" })).Id;
+        }
+
+        var interceptor = new BeforeSaveInterceptor(async () =>
+        {
+            await using var otherContext = CreateSharedContext();
+            Assert.True(await CreateRepository(otherContext).DeleteAsync(id));
+        });
+
+        await using var context = CreateSharedContext(interceptor);
+        var result = await write(CreateRepository(context), id);
+
+        Assert.Empty(context.ChangeTracker.Entries());
+        await using var verifyContext = CreateSharedContext();
+        Assert.False(await verifyContext.Warehouses.AnyAsync(w => w.Id == id));
+
+        return result;
+    }
+
+    /// <summary>
+    /// Test to ensure that updating a warehouse deleted by another request in the meantime returns false (404 in the API)
+    /// instead of failing, and does not bring the warehouse back.
+    /// </summary>
+    [Fact]
+    public async Task UpdateAsync_WhenWarehouseDeletedConcurrently_ReturnsFalse()
+    {
+        Assert.False(await WriteWhileWarehouseIsDeletedConcurrentlyAsync(
+            (repo, id) => repo.UpdateAsync(id, new Warehouse { Name = "New" })));
+    }
+
+    /// <summary>
+    /// Test to ensure that deleting a warehouse already deleted by another request in the meantime returns false (404 in the API)
+    /// instead of failing.
+    /// </summary>
+    [Fact]
+    public async Task DeleteAsync_WhenWarehouseDeletedConcurrently_ReturnsFalse()
+    {
+        Assert.False(await WriteWhileWarehouseIsDeletedConcurrentlyAsync(
+            (repo, id) => repo.DeleteAsync(id)));
+    }
+
     // ---------------------------------------------------------------------
     // Service and controller tests
     // ---------------------------------------------------------------------
@@ -202,5 +284,30 @@ public class WarehouseTests
 
         var all = await admin.GetFromJsonAsync<List<WarehouseResponseDto>>("/api/v1/warehouses");
         Assert.Equal("Main", Assert.Single(all!).Name);
+    }
+
+    /// <summary>
+    /// Test to ensure that an updated warehouse is read back by id with its new name and address,
+    /// and that updating or reading an unknown warehouse returns 404.
+    /// </summary>
+    [Fact]
+    public async Task Api_UpdateWarehouse_ThenGetById_ReturnsNewValues()
+    {
+        using var factory = new InMemoryWebApplicationFactory();
+        var (admin, _) = await factory.CreateAuthenticatedClientAsync();
+
+        var create = await admin.PostAsJsonAsync("/api/v1/warehouses", new { name = "Old", address = "Old address" });
+        var id = (await create.Content.ReadFromJsonAsync<WarehouseResponseDto>())!.Id;
+
+        var update = await admin.PutAsJsonAsync($"/api/v1/warehouses/{id}", new { name = "Lyon", address = "2 place Bellecour" });
+        Assert.Equal(HttpStatusCode.NoContent, update.StatusCode);
+
+        var fetched = await admin.GetFromJsonAsync<WarehouseResponseDto>($"/api/v1/warehouses/{id}");
+        Assert.Equal("Lyon", fetched!.Name);
+        Assert.Equal("2 place Bellecour", fetched.Address);
+
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await admin.PutAsJsonAsync("/api/v1/warehouses/999", new { name = "X" })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync("/api/v1/warehouses/999")).StatusCode);
     }
 }

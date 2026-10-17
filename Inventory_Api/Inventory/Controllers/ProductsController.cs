@@ -144,7 +144,9 @@ public class ProductsController : ControllerBase
     {
         if (id <= 0)
         {
-            throw new ArgumentException("A valid product ID is required.");
+            // A client error (400), not an exception: an ArgumentException would end as a 500 on /error.
+            ModelState.AddModelError(nameof(id), "A valid product ID is required.");
+            return ValidationProblem(ModelState);
         }
 
         bool updated;
@@ -187,7 +189,9 @@ public class ProductsController : ControllerBase
     {
         if (id <= 0)
         {
-            throw new ArgumentException("A valid product ID is required.");
+            // A client error (400), not an exception: an ArgumentException would end as a 500 on /error.
+            ModelState.AddModelError(nameof(id), "A valid product ID is required.");
+            return ValidationProblem(ModelState);
         }
 
         bool deleted;

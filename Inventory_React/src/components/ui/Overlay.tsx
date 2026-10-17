@@ -22,6 +22,8 @@ type OverlayProps = {
 /** Scrim + focus trap + Escape for modals and drawers (prototype: openOverlay / closeOverlay). */
 export function Overlay({ drawer, persistent, onClose, children }: OverlayProps) {
     const ref = useRef<HTMLDivElement>(null);
+    // Read during the first render: by the time effects run, an autoFocus inside the dialog has already moved the focus.
+    const [opener] = useState(() => document.activeElement as HTMLElement | null);
     const [phase, setPhase] = useState<"enter" | "open" | "closing">("enter");
     const onCloseRef = useRef(onClose);
 
@@ -39,7 +41,6 @@ export function Overlay({ drawer, persistent, onClose, children }: OverlayProps)
     }, [phase]);
 
     useEffect(() => {
-        const lastFocus = document.activeElement as HTMLElement | null;
         const raf = requestAnimationFrame(() =>
             requestAnimationFrame(() => setPhase((p) => (p === "enter" ? "open" : p))),
         );
@@ -52,9 +53,9 @@ export function Overlay({ drawer, persistent, onClose, children }: OverlayProps)
             cancelAnimationFrame(raf);
             clearTimeout(focusTimer);
             document.body.style.overflow = "";
-            lastFocus?.focus?.();
+            opener?.focus?.();
         };
-    }, []);
+    }, [opener]);
 
     function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
         if (e.key === "Escape") {

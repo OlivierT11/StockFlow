@@ -7,6 +7,8 @@ using Inventory.Repositories;
 using Inventory.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -135,6 +137,86 @@ public class CategoryTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => repo.UpdateAsync(created.Id, new Category { Name = "X" }, cts.Token));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => repo.DeleteAsync(created.Id, cts.Token));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => repo.HasProductsAsync(created.Id, cts.Token));
+    }
+
+    /// <summary>
+    /// Test to ensure that every repository method gives up when its timeout expires,
+    /// and logs it as a timeout (warning) rather than as a cancellation by the caller.
+    /// </summary>
+    [Fact]
+    public async Task Methods_WhenTimeoutExpires_ThrowAndLogTimeout()
+    {
+        await using var context = CreateContext();
+        var created = await CreateRepository(context).CreateAsync(new Category { Name = "Tools" });
+        var logger = new ListLogger<CategoryRepository>();
+        var repo = new CategoryRepository(context, logger, TimeoutAssert.Expired);
+
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.GetAllAsync());
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.GetByIdAsync(created.Id));
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.ExistsAsync(created.Id));
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.CreateAsync(new Category { Name = "X" }));
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.UpdateAsync(created.Id, new Category { Name = "X" }));
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.DeleteAsync(created.Id));
+        await TimeoutAssert.ThrowsAndLogsTimeoutAsync(logger, () => repo.HasProductsAsync(created.Id));
+    }
+
+    /// <summary>
+    /// Runs an update or a delete while another request deletes the same category between the repository's read and its write.
+    /// Checks that the stale entity is detached and that the category stays deleted, then returns the result of the write.
+    /// </summary>
+    private static async Task<bool> WriteWhileCategoryIsDeletedConcurrentlyAsync(
+        Func<CategoryRepository, int, Task<bool>> write)
+    {
+        var root = new InMemoryDatabaseRoot();
+        var databaseName = Guid.NewGuid().ToString();
+        AppDbContext CreateSharedContext(params IInterceptor[] interceptors) => new(
+            new DbContextOptionsBuilder<AppDbContext>()
+                .UseInMemoryDatabase(databaseName, root)
+                .AddInterceptors(interceptors)
+                .Options);
+
+        int id;
+        await using (var setupContext = CreateSharedContext())
+        {
+            id = (await CreateRepository(setupContext).CreateAsync(new Category { Name = "Tools" })).Id;
+        }
+
+        var interceptor = new BeforeSaveInterceptor(async () =>
+        {
+            await using var otherContext = CreateSharedContext();
+            Assert.True(await CreateRepository(otherContext).DeleteAsync(id));
+        });
+
+        await using var context = CreateSharedContext(interceptor);
+        var result = await write(CreateRepository(context), id);
+
+        Assert.Empty(context.ChangeTracker.Entries());
+        await using var verifyContext = CreateSharedContext();
+        Assert.False(await verifyContext.Categories.AnyAsync(c => c.Id == id));
+
+        return result;
+    }
+
+    /// <summary>
+    /// Test to ensure that updating a category deleted by another request in the meantime returns false (404 in the API)
+    /// instead of failing, and does not bring the category back.
+    /// </summary>
+    [Fact]
+    public async Task UpdateAsync_WhenCategoryDeletedConcurrently_ReturnsFalse()
+    {
+        Assert.False(await WriteWhileCategoryIsDeletedConcurrentlyAsync(
+            (repo, id) => repo.UpdateAsync(id, new Category { Name = "New" })));
+    }
+
+    /// <summary>
+    /// Test to ensure that deleting a category already deleted by another request in the meantime returns false (404 in the API)
+    /// instead of failing.
+    /// </summary>
+    [Fact]
+    public async Task DeleteAsync_WhenCategoryDeletedConcurrently_ReturnsFalse()
+    {
+        Assert.False(await WriteWhileCategoryIsDeletedConcurrentlyAsync(
+            (repo, id) => repo.DeleteAsync(id)));
     }
 
     // ---------------------------------------------------------------------

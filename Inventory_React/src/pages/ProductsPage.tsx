@@ -92,6 +92,7 @@ export default function ProductsPage() {
 
     function clearAll() {
         const empty: Filters = { search: "", cat: "", min: "", max: "", low: false };
+        applySearch.cancel();
         setDraft(empty);
         applyDraft(empty);
     }
@@ -156,8 +157,18 @@ export default function ProductsPage() {
                     className="toolbar"
                     role="search"
                     aria-label="Filtrer les produits"
+                    // The page validates the prices itself: no native bubble, and applyDraft keeps the last valid value.
+                    noValidate
+                    onKeyDown={(e) => {
+                        // The search and price fields block implicit submission, so Enter would do nothing.
+                        if (e.key === "Enter" && e.target instanceof HTMLInputElement && e.target.type !== "checkbox") {
+                            e.preventDefault();
+                            e.currentTarget.requestSubmit();
+                        }
+                    }}
                     onSubmit={(e: FormEvent) => {
                         e.preventDefault();
+                        applySearch.cancel();
                         applyDraft(draft);
                     }}
                 >
@@ -252,6 +263,7 @@ export default function ProductsPage() {
                                     aria-label={`Retirer le filtre ${a.label}`}
                                     onClick={() => {
                                         const next = { ...draft, ...a.clear };
+                                        if ("search" in a.clear) applySearch.cancel();
                                         setDraft(next);
                                         apply(a.clear);
                                     }}

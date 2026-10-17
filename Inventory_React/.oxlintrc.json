@@ -17,5 +17,15 @@
   "ignorePatterns": [
     "Prototype-front/**",
     "dist/**"
+  ],
+  "overrides": [
+    {
+      "files": [
+        "src/test/**"
+      ],
+      "rules": {
+        "react/only-export-components": "off"
+      }
+    }
   ]
 }

@@ -53,6 +53,14 @@ function ProductPicker({ products, selected, error, onPick }: ProductPickerProps
     const s = text.trim().toLowerCase();
     const items = (products ?? []).filter((p) => !s || p.name.toLowerCase().includes(s)).slice(0, 8);
 
+    // Start from an empty search if the user comes back with "Changer de produit".
+    function pick(product: Product) {
+        setText("");
+        setOpen(false);
+        setActive(-1);
+        onPick(product);
+    }
+
     function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
         if (e.key === "ArrowDown") {
             e.preventDefault();
@@ -63,8 +71,8 @@ function ProductPicker({ products, selected, error, onPick }: ProductPickerProps
             setActive((i) => Math.max(0, i - 1));
         } else if (e.key === "Enter") {
             e.preventDefault();
-            if (items[active]) onPick(items[active]);
-            else if (items.length === 1) onPick(items[0]);
+            if (items[active]) pick(items[active]);
+            else if (items.length === 1) pick(items[0]);
         } else if (e.key === "Escape" && open) {
             e.stopPropagation();
             setOpen(false);
@@ -108,7 +116,7 @@ function ProductPicker({ products, selected, error, onPick }: ProductPickerProps
                                 aria-selected={i === active}
                                 onMouseDown={(e) => {
                                     e.preventDefault();
-                                    onPick(p);
+                                    pick(p);
                                 }}
                             >
                                 <span className="c-name od-truncate">{p.name}</span>
@@ -161,7 +169,7 @@ function MovementDrawer({ preset, onClose }: { preset?: Product; onClose: () => 
         setErrors(next);
         if (!selected || next.warehouse || next.quantity) return;
         if (after < 0) {
-            setErrors({ quantity: `Stock insuffisant : ${fmtInt(selected.stock)} ${plural(selected.stock, "unité")} disponibles.` });
+            setErrors({ quantity: `Stock insuffisant : ${fmtInt(selected.stock)} ${plural(selected.stock, "unité")} ${plural(selected.stock, "disponible")}.` });
             return;
         }
         setSaving(true);

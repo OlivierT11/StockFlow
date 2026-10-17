@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { usePageTitle } from "../components/layout/shellContext";
@@ -18,7 +19,6 @@ import { NotFoundPage } from "./ErrorPages";
 const HISTORY_SIZE = 8;
 
 export default function ProductDetailPage() {
-    usePageTitle("Détail du produit");
     const { id: idParam } = useParams();
     const id = Number(idParam);
     const [params, setParams] = useSearchParams();
@@ -35,7 +35,17 @@ export default function ProductDetailPage() {
         { keepPrevious: true, enabled: id > 0 },
     );
 
-    if (!(id > 0) || (product.error instanceof ApiError && product.error.status === 404)) return <NotFoundPage />;
+    // Set here rather than only in NotFoundPage: a parent's effect runs after its child's and would win.
+    const notFound = !(id > 0) || (product.error instanceof ApiError && product.error.status === 404);
+    usePageTitle(notFound ? "Page introuvable" : "Détail du produit");
+
+    // A page past the end of the history (old link, deleted movements): go to the last one.
+    const historyPages = history.data?.totalPages ?? 0;
+    useEffect(() => {
+        if (historyPages > 0 && page > historyPages) setParams({ page: String(historyPages) }, { replace: true });
+    }, [historyPages, page, setParams]);
+
+    if (notFound) return <NotFoundPage />;
     if (product.error) return <ErrorBanner error={product.error} title="Impossible de charger le produit." onRetry={product.reload} />;
     if (!product.data) return <SkeletonPage rows={8} />;
 
