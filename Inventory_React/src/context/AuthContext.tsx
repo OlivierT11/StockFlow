@@ -1,97 +1,80 @@
-import {
-    createContext,
-    useContext,
-    useEffect,
-    useState,
-    type PropsWithChildren,
-} from "react";
+import { useCallback, useEffect, useMemo, useState, type PropsWithChildren } from "react";
+import { AuthContext, type AuthContextValue, type AuthStatus, type SessionUser } from "./auth";
+import { authApi, onSessionExpired, tokens } from "../lib/api";
+import type { Profile } from "../lib/types";
 
-type AuthContextValue = {
-    token: string | null;
-    isAuthenticated: boolean;
-    loading: boolean;
-    login: (newToken: string) => void;
-    logout: () => void;
-};
-
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-
-export function AuthProvider({ children }: PropsWithChildren) {
-    const [token, setToken] = useState<string | null>(() =>
-        localStorage.getItem("access_token")
-    );
-
-    const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-    const [loading, setLoading] = useState<boolean>(true);
-
-    useEffect(() => {
-        async function checkAuthentication(): Promise<void> {
-            if (!token) {
-                setIsAuthenticated(false);
-                setLoading(false);
-                return;
-            }
-
-            const apiUrl = import.meta.env.VITE_API_URL;
-
-            try {
-                const response = await fetch(`${apiUrl}/api/profile`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
-
-                if (!response.ok) {
-                    throw new Error("Token invalide ou expiré");
-                }
-
-                setIsAuthenticated(true);
-            } catch {
-                localStorage.removeItem("access_token");
-                setToken(null);
-                setIsAuthenticated(false);
-            } finally {
-                setLoading(false);
-            }
-        }
-
-        checkAuthentication();
-    }, [token]);
-
-    function login(newToken: string): void {
-        localStorage.setItem("access_token", newToken);
-        setToken(newToken);
-        setIsAuthenticated(true);
-        setLoading(false);
-    }
-
-    function logout(): void {
-        localStorage.removeItem("access_token");
-        setToken(null);
-        setIsAuthenticated(false);
-    }
-
-    return (
-        <AuthContext.Provider
-            value={{
-                token,
-                isAuthenticated,
-                loading,
-                login,
-                logout,
-            }}
-        >
-            {children}
-        </AuthContext.Provider>
-    );
+function toSessionUser(profile: Profile): SessionUser {
+    return {
+        id: Number(profile.userId),
+        email: profile.email ?? "",
+        role: profile.role === "Admin" ? "Admin" : "User",
+    };
 }
 
-export function useAuth(): AuthContextValue {
-    const context = useContext(AuthContext);
+export function AuthProvider({ children }: PropsWithChildren) {
+    const [user, setUser] = useState<SessionUser | null>(null);
+    const [status, setStatus] = useState<AuthStatus>(() => (tokens.access ? "loading" : "anonymous"));
+    const [sessionExpired, setSessionExpired] = useState(false);
 
-    if (!context) {
-        throw new Error("useAuth doit être utilisé dans un AuthProvider");
-    }
+    // Validate the stored session once, on load (the request refreshes an expired access token).
+    useEffect(() => {
+        if (!tokens.access) return;
+        const controller = new AbortController();
+        authApi
+            .profile(controller.signal)
+            .then((profile) => {
+                setUser(toSessionUser(profile));
+                setStatus("authenticated");
+            })
+            .catch(() => {
+                if (controller.signal.aborted) return;
+                tokens.clear();
+                setStatus("anonymous");
+            });
+        return () => controller.abort();
+    }, []);
 
-    return context;
+    useEffect(() => {
+        onSessionExpired(() => setSessionExpired(true));
+        return () => onSessionExpired(null);
+    }, []);
+
+    const login = useCallback(async (email: string, password: string) => {
+        const res = await authApi.login(email, password);
+        tokens.set(res.access_token, res.refresh_token);
+        const sessionUser = toSessionUser(await authApi.profile());
+        setUser(sessionUser);
+        setSessionExpired(false);
+        setStatus("authenticated");
+        return sessionUser;
+    }, []);
+
+    const register = useCallback(
+        async (username: string, email: string, password: string) => {
+            await authApi.register(username, email, password);
+            return login(email, password);
+        },
+        [login],
+    );
+
+    const logout = useCallback(async () => {
+        const refreshToken = tokens.refresh;
+        try {
+            if (refreshToken && tokens.access) await authApi.logout(refreshToken);
+        } catch {
+            // The session is closed locally even if the API could not revoke the tokens.
+        } finally {
+            tokens.clear();
+            setUser(null);
+            setSessionExpired(false);
+            setStatus("anonymous");
+        }
+    }, []);
+
+    const value = useMemo<AuthContextValue>(
+        () => ({ status, user, isAdmin: user?.role === "Admin", sessionExpired, login, register, logout }),
+        [status, user, sessionExpired, login, register, logout],
+    );
+
+    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
