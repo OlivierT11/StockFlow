@@ -54,6 +54,46 @@ public class MigrationTests
         // Concurrency tokens ([Timestamp]) used by the optimistic concurrency checks.
         Assert.Contains("ALTER TABLE [Products] ADD [Version] rowversion NOT NULL", script);
         Assert.Contains("ALTER TABLE [Users] ADD [Version] rowversion NOT NULL", script);
+
+        // Sprint 2: inventory domain.
+        Assert.Contains("CREATE TABLE [Categories]", script);
+        Assert.Contains("CREATE TABLE [Warehouses]", script);
+        Assert.Contains("CREATE TABLE [StockMovements]", script);
+        Assert.Contains("[Type] nvarchar(20) NOT NULL", script); // enum stored as text
+        Assert.Contains("ALTER TABLE [Products] ADD [CategoryId] int NULL", script); // existing products stay valid
+    }
+
+    /// <summary>
+    /// The existing products must get the same low stock threshold as the new ones (10), not 0:
+    /// the default value of the column was edited by hand in the migration, so this guards against a regeneration.
+    /// </summary>
+    [Fact]
+    public void Migrations_BackfillLowStockThresholdWithDefaultValue()
+    {
+        using var context = CreateSqlServerContext();
+
+        var script = context.GetService<IMigrator>().GenerateScript();
+
+        Assert.Contains("ALTER TABLE [Products] ADD [LowStockThreshold] int NOT NULL DEFAULT 10", script);
+        Assert.Equal(10, new Inventory.Models.Product().LowStockThreshold);
+    }
+
+    /// <summary>
+    /// Movements are the stock history: deleting a product, a warehouse or a user must not delete them in cascade.
+    /// </summary>
+    [Fact]
+    public void Migrations_DoNotCascadeDeleteMovements()
+    {
+        using var context = CreateSqlServerContext();
+
+        var script = context.GetService<IMigrator>().GenerateScript();
+        var movementsTable = script[script.IndexOf("CREATE TABLE [StockMovements]")..];
+        movementsTable = movementsTable[..movementsTable.IndexOf(");")];
+
+        Assert.DoesNotContain("ON DELETE CASCADE", movementsTable);
+        Assert.Contains("REFERENCES [Products] ([Id])", movementsTable);
+        Assert.Contains("REFERENCES [Warehouses] ([Id])", movementsTable);
+        Assert.Contains("REFERENCES [Users] ([Id])", movementsTable);
     }
 
 }

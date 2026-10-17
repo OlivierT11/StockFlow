@@ -1,9 +1,10 @@
 ﻿using Inventory.DTOs;
-using Inventory.Models;
 using Inventory.Services;
+using Inventory.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.IdentityModel.Tokens.Jwt;
 
 namespace Inventory.Controllers
@@ -12,12 +13,19 @@ namespace Inventory.Controllers
     /// Represents a controller for handling authentication-related operations, such as user login and token generation.
     /// </summary>
     [ApiController]
-    [Route("api/auth")]
+    [Route("api/v1/auth")]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _service;
         private readonly TokenRevocationService _tokenRevocationService;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AuthController"/> class.
+        /// </summary>
+        /// <param name="service">The authentication service.</param>
+        /// <param name="tokenRevocationService">The service that revokes the access tokens on logout.</param>
         public AuthController(IAuthService service, TokenRevocationService tokenRevocationService = default)
         {
             _service = service;
@@ -27,22 +35,25 @@ namespace Inventory.Controllers
         /// <summary>
         /// Handles user login requests. Validates the provided email and password, and generates a JWT token if the credentials are valid.
         /// </summary>
-        /// <param name="request"></param>
-        /// <returns></returns>
-        [HttpPost("login")] //(url)/api/auth/login
+        /// <param name="dto">The user credentials.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>The access token and the refresh token.</returns>
+        [HttpPost("login")] //(url)/api/v1/auth/login
+        [ProducesResponseType<LoginResponseDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType<MessageResponseDto>(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> Login(LoginDto dto, CancellationToken cancellationToken = default)
         {
             string[] tokens = await _service.LogUserAsync(dto, cancellationToken);
 
             if (tokens is null)
             {
-                return Unauthorized(new  // Unauthorized() is part of IActionResult, as well as OK()
+                return Unauthorized(new MessageResponseDto  // Unauthorized() is part of IActionResult, as well as OK()
                 {
-                    message = "Invalid email or password."
+                    Message = "Invalid email or password."
                 });
             }
 
-            return Ok(new { access_token = tokens[0], refresh_token = tokens[1] });
+            return Ok(new LoginResponseDto { AccessToken = tokens[0], RefreshToken = tokens[1] });
         }
 
         /// <summary>
@@ -51,34 +62,51 @@ namespace Inventory.Controllers
         /// If the provided refresh token is valid and not revoked or expired, a new access token and refresh token are generated and returned. 
         /// The old refresh token is revoked to prevent reuse.
         /// </summary>
-        /// <param name="request"></param>
-        /// <returns></returns>
+        /// <param name="request">The refresh token.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A new access token and a new refresh token.</returns>
         [HttpPost("refresh")]
+        [ProducesResponseType<TokenResponseDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType<MessageResponseDto>(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Refresh(RefreshRequest request, CancellationToken cancellationToken = default)
         {
+            // RefreshRequest has no validation attribute: without this check, a blank token reaches the service,
+            // whose ArgumentException ends as a 500 on /error.
+            if (string.IsNullOrWhiteSpace(request.RefreshToken))
+            {
+                ModelState.AddModelError(nameof(request.RefreshToken), "The refresh token is required.");
+                return ValidationProblem(ModelState);
+            }
+
             string[] tokens = await _service.RefreshTokenAsync(request, cancellationToken);
 
             if (tokens is null)
             {
-                return Unauthorized(new
+                return Unauthorized(new MessageResponseDto
                 {
-                    message = "Invalid or expired refresh token."
+                    Message = "Invalid or expired refresh token."
                 });
             }
 
-            return Ok(new
+            return Ok(new TokenResponseDto
             {
-                accessToken = tokens[0],
-                refreshToken = tokens[1]
+                AccessToken = tokens[0],
+                RefreshToken = tokens[1]
             });
         }
 
         /// <summary>
         /// Handles user logout requests. Revokes the JWT token provided in the Authorization header, preventing further use of that token for authentication.
         /// </summary>
-        /// <returns></returns>
+        /// <param name="request">The refresh token to revoke along with the access token.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>No content.</returns>
         [Authorize]
         [HttpPost("logout")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> Logout(
             RefreshRequest request,
             CancellationToken cancellationToken = default)
@@ -127,23 +155,25 @@ namespace Inventory.Controllers
         /// </summary>
         /// <param name="request">The user registration details.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns></returns>
-        [HttpPost("register")] //(url)/api/auth/register
+        /// <returns>A confirmation message.</returns>
+        [HttpPost("register")] //(url)/api/v1/auth/register
+        [ProducesResponseType<MessageResponseDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType<MessageResponseDto>(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> AddUser(CreateUserDTO request, CancellationToken cancellationToken = default)
         {
             var isAdded = await _service.AddUserAsync(request, cancellationToken);
 
             if (!isAdded)
             {
-                return BadRequest(new
+                return BadRequest(new MessageResponseDto
                 {
-                    message = "This user already exists."
+                    Message = "This user already exists."
                 });
             }
 
-            return Ok(new
+            return Ok(new MessageResponseDto
             {
-                message = "User created successfully."
+                Message = "User created successfully."
             });
         }
     }
