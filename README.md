@@ -15,6 +15,7 @@ The backend is built with ASP.NET Core and .NET 10, using Entity Framework Core,
 - [Configuration](#configuration)
 - [Authentication](#authentication)
 - [API Endpoints](#api-endpoints)
+- [Errors](#errors)
 - [Health Checks and Swagger](#health-checks-and-swagger)
 - [Testing and CI/CD](#testing-and-cicd)
 - [Logging and Diagnostics](#logging-and-diagnostics)
@@ -31,7 +32,15 @@ The backend is built with ASP.NET Core and .NET 10, using Entity Framework Core,
 - Delete products
 - View product details
 - Browse products with pagination
-- Search products
+- Search products (name, price range, category, low stock), with sorting
+- Low stock alerts, with a threshold per product
+
+### Inventory
+
+- Categories and warehouses
+- Stock movements (in, out, adjustment) recorded in a SQL transaction with the stock update, never letting the stock go negative
+- Movement history per product, per warehouse and per period
+- Dashboard: product count, stock value, low stock products, latest movements (cached 60 seconds, refreshed by every movement)
 
 ### Authentication and Authorization
 
@@ -43,7 +52,10 @@ The backend is built with ASP.NET Core and .NET 10, using Entity Framework Core,
 ### Performance and Reliability
 
 - In-memory caching for database calls
-- API and database health checks
+- Liveness and readiness health checks
+- Optimistic concurrency (SQL Server rowversion), returned as 409 Conflict
+- Rate limiting of the authentication endpoints
+- Structured JSON logs (Serilog) and Application Insights
 - Transactions and error handling for SQL Server
 - Server-side and client-side validation
 - Error logging with `ILogger`
@@ -85,7 +97,8 @@ The React frontend follows a separation-of-concerns architecture organized by te
 - IMemoryCache
 - OpenAPI and Swagger
 - ILogger
-- Serilog, Console, and Debug logging providers
+- Serilog (compact JSON to the console)
+- Azure Monitor OpenTelemetry (Application Insights)
 
 ### Frontend
 
@@ -175,8 +188,19 @@ Example appsettings.json configuration:
     "AllowedOrigins": [
       "http://localhost:3000"
     ]
+  },
+  "RateLimiting": {
+    "Auth": {
+      "PermitLimit": 10,
+      "WindowSeconds": 60
+    }
   }
 }
+
+In Development, CORS allows the React dev server (http://localhost:5173) and the Angular dev server (http://localhost:4200).
+
+Optional environment variable:
+- APPLICATIONINSIGHTS_CONNECTION_STRING: when set, requests, SQL dependencies, exceptions and logs are sent to Application Insights. When it is not set, Application Insights is disabled.
 
 Do not commit production secrets, JWT keys, database passwords, or other sensitive values to the repository. Use environment variables or Azure Key Vault for production configuration.
 
@@ -191,24 +215,61 @@ Authentication-related components include:
 - IAuthRepository
 
 ## API Endpoints
-GET	/api/products	  Get a paginated list of products
-GET	/api/products/{id}	  Get a product by ID
-POST /api/products	  Create a product
-PUT	/api/products/{id}	  Update a product
-DELETE /api/products/{id}	  Delete a product
-GET	/api/health	  Check API and database health
 
-See the controllers and OpenAPI documentation for request models, response formats, and authorization requirements.
+All the endpoints are versioned under `/api/v1/`. Unless stated otherwise they require a token; "User" means any authenticated user (roles Admin and User).
+
+| Method | Route | Access | Description |
+|---|---|---|---|
+| POST | /api/v1/auth/login | anonymous | Get an access token and a refresh token |
+| POST | /api/v1/auth/refresh | anonymous | Exchange a refresh token for a new pair |
+| POST | /api/v1/auth/register | anonymous | Create a user |
+| POST | /api/v1/auth/logout | User | Revoke the access and refresh tokens |
+| GET | /api/v1/profile | User | Current user (id, email, role) |
+| GET | /api/v1/products | User | All products |
+| GET | /api/v1/products/paged | User | Search: `name`, `minPrice`, `maxPrice`, `lowStockOnly`, `categoryId`, `sortBy`, `sortDirection`, `askedPage`, `pageSize` |
+| GET | /api/v1/products/low-stock | User | Products at or below their threshold |
+| GET | /api/v1/products/{id} | User | One product |
+| GET | /api/v1/products/{id}/movements | User | Movement history of a product (paginated) |
+| POST, PUT, DELETE | /api/v1/products[/{id}] | Admin | Manage products (a product with movements cannot be deleted) |
+| GET | /api/v1/categories[/{id}] | User | Categories |
+| POST, PUT, DELETE | /api/v1/categories[/{id}] | Admin | Manage categories (a category with products cannot be deleted) |
+| GET | /api/v1/warehouses[/{id}] | User | Warehouses |
+| POST, PUT, DELETE | /api/v1/warehouses[/{id}] | Admin | Manage warehouses (a warehouse with movements cannot be deleted) |
+| POST | /api/v1/stock/movements | User | Record a movement: `type` is `In`, `Out` or `Adjustment` |
+| GET | /api/v1/stock/movements | User | Movements filtered by `warehouseId` and period (`from` inclusive, `to` exclusive, UTC) |
+| GET | /api/v1/dashboard | User | Product count, stock value, low stock products, latest movements |
+
+The authentication endpoints are rate limited per client IP (10 requests per minute by default, see `RateLimiting:Auth`).
+
+See the OpenAPI document for request models and response formats.
+
+## Errors
+
+Every error is returned as a ProblemDetails (`application/problem+json`):
+
+| Status | When |
+|---|---|
+| 400 | Invalid request; unknown `productId`, `warehouseId` or `categoryId` (reported in `errors` like a validation error) |
+| 401 / 403 | Missing or invalid token / insufficient role |
+| 404 | Unknown resource or route |
+| 409 | Concurrent modification (reload and retry), or deletion of a category, warehouse or product still in use |
+| 422 | Business rule: the movement would make the stock negative |
+| 429 | Too many authentication requests (see the `Retry-After` header) |
+| 500 | Unexpected error |
 
 ## Health Checks and Swagger
 
-Health checks are available at:
-GET /api/health
+Health checks (no token required):
+GET /health/live    the process is running
+GET /health/ready   the database is reachable
 
 OpenAPI documentation is enabled in the Development environment:
 /openapi/v1.json
 
-Swagger UI is available when:
+It declares the bearer scheme, the response types and the enums as strings, so it can be used to generate the Angular client, for example:
+npx ng-openapi-gen --input http://localhost:5293/openapi/v1.json --output src/app/api
+
+Swagger UI is available at /swagger when:
 ASPNETCORE\_ENVIRONMENT=Development
 
 ## Testing and CI/CD
@@ -229,11 +290,12 @@ The GitHub Actions pipeline includes:
 
 ## Logging and Diagnostics
 
-The application is configured with Console and Debug logging providers.
+Serilog writes structured logs to the console, one JSON object per line, plus one summary line per request
+(health probes are only logged when they fail). Azure Container Apps collects them as is in Log Analytics.
 
-Logging settings can be adjusted in:
-Program.cs
-appsettings.json
+Log levels are set in the `Serilog` section of appsettings.json.
+
+When `APPLICATIONINSIGHTS_CONNECTION_STRING` is set, the same logs, the requests, the SQL dependencies and the exceptions are also sent to Application Insights.
 
 ## Deployment
 
@@ -251,11 +313,13 @@ https://inventory-frontend-container-app.gentledune-2e10108a.francecentral.azure
 
 The business rules are documented progressively as the application evolves.
 
-Examples may include:
-    Only authenticated administrators can manage products.
-    Product names must be provided.
-    Product prices and quantities must be valid.
-    Product identifiers must be unique.
+- Only administrators can manage products, categories and warehouses; every authenticated user can read them and record stock movements.
+- A movement and its stock change are saved together or not at all (one SQL transaction).
+- The stock can never become negative: such a movement is refused (422).
+- In and Out quantities are positive; an Adjustment quantity is signed and non-zero.
+- The movement date and author are set by the server (UTC date, user of the token).
+- Categories, warehouses and products that are referenced (by products or movements) cannot be deleted (409).
+- A product is in low stock when its stock is at or below its `LowStockThreshold` (10 by default).
 
 ## Contributing
 

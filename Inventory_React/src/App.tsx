@@ -1,92 +1,62 @@
-import './App.css'
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { IconSprite } from "./components/Icon";
+import AppShell from "./components/layout/AppShell";
+import { MovementDrawerProvider } from "./components/MovementDrawer";
+import { PublicOnly, RequireAdmin, RequireAuth } from "./components/RouteGuards";
+import { ConfirmProvider } from "./components/ui/ConfirmDialog";
 import { AuthProvider } from "./context/AuthContext";
-import { useAuth } from "./context/AuthContext";
+import { DataProvider } from "./context/DataContext";
+import { ToastProvider } from "./context/ToastContext";
+import { LoginPage, RegisterPage } from "./pages/AuthPages";
+import CategoriesPage from "./pages/CategoriesPage";
+import DashboardPage from "./pages/DashboardPage";
+import { NotFoundPage } from "./pages/ErrorPages";
+import MovementsPage from "./pages/MovementsPage";
+import ProductDetailPage from "./pages/ProductDetailPage";
+import ProductFormPage from "./pages/ProductFormPage";
+import ProductsPage from "./pages/ProductsPage";
+import WarehousesPage from "./pages/WarehousesPage";
 
-import ProtectedRoute from "./components/ProtectedRoute";
-
-import Login from "./pages/Login";
-import Product_Add from "./pages/Product_Add";
-import Product_List from './pages/Product_List';
-import Product_Details from './pages/Product_Details';
-
-
-function Navigation() {
-    const navigate = useNavigate();
-    const { token, logout } = useAuth();
-
-    async function handleLogout() {
-        const token = localStorage.getItem("access_token");
-
-        try {
-            if (token) {
-                await fetch(`${import.meta.env.VITE_API_URL}/api/auth/logout`, {
-                    method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
-            }
-        } finally {
-            localStorage.removeItem("access_token");
-            logout();
-            navigate("/login");
-        }
-    }
-
-
-    return (
-
-        // <nav>
-        //     <Link to="/Product_Add">Product_Add</Link>{" "}
-        //     <Link to="/Product_List">Product_List</Link>
-        // </nav>
-        <nav className="navigation">
-            <button type="button" onClick={() => navigate("/Product_Add")}>
-                Ajouter un produit
-            </button>
-
-            <button type="button" onClick={() => navigate("/Product_List")}>
-                Liste des produits
-            </button>
-
-            {token && (
-                <button type="button" onClick={handleLogout}>
-                    Logout
-                </button>
-            )}
-        </nav>
-    );
-}
-
-function App() {
-
+export default function App() {
     return (
         <BrowserRouter>
-            <AuthProvider>
-            <main className="app-container">
+            <IconSprite />
+            <ToastProvider>
+                <AuthProvider>
+                    <DataProvider>
+                        <ConfirmProvider>
+                            <MovementDrawerProvider>
+                                <Routes>
+                                    <Route element={<PublicOnly />}>
+                                        <Route path="/login" element={<LoginPage />} />
+                                        <Route path="/inscription" element={<RegisterPage />} />
+                                    </Route>
 
-                <Navigation />
+                                    <Route element={<RequireAuth />}>
+                                        <Route element={<AppShell />}>
+                                            <Route index element={<DashboardPage />} />
+                                            <Route path="produits" element={<ProductsPage />} />
+                                            <Route path="produits/:id" element={<ProductDetailPage />} />
+                                            <Route element={<RequireAdmin />}>
+                                                <Route path="produits/nouveau" element={<ProductFormPage />} />
+                                                <Route path="produits/:id/modifier" element={<ProductFormPage />} />
+                                            </Route>
+                                            <Route path="mouvements" element={<MovementsPage />} />
+                                            <Route path="categories" element={<CategoriesPage />} />
+                                            <Route path="entrepots" element={<WarehousesPage />} />
+                                            <Route path="*" element={<NotFoundPage />} />
+                                        </Route>
+                                    </Route>
 
-                <hr />
-
-                <Routes>
-
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/" element={<Login />} />
-
-                    <Route element={<ProtectedRoute />}>
-                        <Route path="/Product_Add" element={<Product_Add />} />
-                        <Route path="/Product_List" element={<Product_List />} />
-                        <Route path="/Product_Details/:id" element={<Product_Details />} />
-                    </Route>
-
-                </Routes>
-
-                </main>
-            </AuthProvider>
+                                    {/* Paths of the previous version of the app */}
+                                    <Route path="/Product_List" element={<Navigate to="/produits" replace />} />
+                                    <Route path="/Product_Add" element={<Navigate to="/produits/nouveau" replace />} />
+                                </Routes>
+                            </MovementDrawerProvider>
+                        </ConfirmProvider>
+                    </DataProvider>
+                </AuthProvider>
+            </ToastProvider>
         </BrowserRouter>
     );
 }
-
-export default App
