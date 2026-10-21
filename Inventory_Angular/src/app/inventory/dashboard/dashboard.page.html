@@ -1,0 +1,24 @@
+<section class="page">
+  <header class="page-head">
+  <div>
+    <p class="eyebrow">INVENTAIRE</p>
+    <h1>Tableau de bord</h1>
+    <p class="lede">Vue d’ensemble de votre activité et de vos stocks.</p>
+  </div>
+  </header>
+
+@if (summary$ | async; as summary) {
+  <section class="tiles" aria-label="Indicateurs clés">
+    @for (metric of summary.metrics; track metric.label) {
+      <app-metric-card [label]="metric.label" [value]="metric.value" />
+    }
+    <app-metric-card label="Articles en stock faible" [value]="summary.lowStockCount" />
+    <app-metric-card label="Mouvements récents" [value]="summary.recentMovements" />
+  </section>
+} @else {
+  <section class="card card-body empty">
+    <h2>Chargement du tableau de bord</h2>
+    <p>Les indicateurs seront affichés lorsque l’API sera disponible.</p>
+  </section>
+}
+</section>

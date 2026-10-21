@@ -1,0 +1,41 @@
+<div class="app">
+  <aside class="sidebar" [class.is-open]="menuOpen()">
+    <a class="brand" routerLink="/dashboard" (click)="closeMenu()">
+      <span class="brand-mark" aria-hidden="true">S</span>
+      <span class="brand-name">StockFlow</span>
+    </a>
+
+    <nav class="nav" aria-label="Navigation principale">
+      <span class="nav-section">Inventaire</span>
+      <a class="nav-link" routerLink="/dashboard" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" (click)="closeMenu()">
+        <span aria-hidden="true">⌂</span><span class="nav-label">Tableau de bord</span>
+      </a>
+      <a class="nav-link" routerLink="/products" routerLinkActive="active" (click)="closeMenu()">
+        <span aria-hidden="true">▦</span><span class="nav-label">Produits</span>
+      </a>
+      <a class="nav-link" routerLink="/stock-movements" routerLinkActive="active" (click)="closeMenu()">
+        <span aria-hidden="true">↕</span><span class="nav-label">Mouvements</span>
+      </a>
+      <span class="nav-section">Configuration</span>
+      <a class="nav-link" routerLink="/categories" routerLinkActive="active" (click)="closeMenu()">
+        <span aria-hidden="true">◫</span><span class="nav-label">Catégories</span>
+      </a>
+      <a class="nav-link" routerLink="/warehouses" routerLinkActive="active" (click)="closeMenu()">
+        <span aria-hidden="true">⌂</span><span class="nav-label">Entrepôts</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-foot">Gestion d'inventaire</div>
+  </aside>
+
+  <button class="scrim" [class.is-open]="menuOpen()" type="button" aria-label="Fermer le menu" (click)="closeMenu()"></button>
+
+  <main class="main">
+    <header class="topbar">
+      <button class="menu-btn btn btn-ghost btn-icon" type="button" aria-label="Ouvrir le menu" (click)="toggleMenu()">☰</button>
+      <span class="topbar-title">Gestion d'inventaire</span>
+      <button class="logout-btn btn btn-ghost btn-icon" type="button" aria-label="Déconnexion" (click)="logout()" title="Déconnexion">×</button>
+    </header>
+    <router-outlet />
+  </main>
+</div>

@@ -1,0 +1,24 @@
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        @for (column of columns; track column.key) {
+          <th scope="col">{{ column.label }}</th>
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of rows; track $index) {
+        <tr>
+          @for (column of columns; track column.key) {
+            <td>{{ cellValue(row, column.key) }}</td>
+          }
+        </tr>
+      } @empty {
+        <tr>
+          <td class="empty" [attr.colspan]="columns.length || 1">Aucune donnée disponible.</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

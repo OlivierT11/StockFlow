@@ -1,0 +1,15 @@
+<section class="page">
+  <header class="page-head">
+  <div>
+    <p class="eyebrow">CONFIGURATION</p>
+    <h1>Catégories</h1>
+    <p class="lede">Organisez les produits par catégorie.</p>
+  </div>
+  </header>
+
+<section class="card card-body flush">
+  @if (categories$ | async; as categories) {
+    <app-data-table [columns]="columns" [rows]="categories" />
+  }
+</section>
+</section>

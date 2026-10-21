@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Inventory_Angular.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+</Solution>

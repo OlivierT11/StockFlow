@@ -1,0 +1,15 @@
+<section class="page">
+  <header class="page-head">
+  <div>
+    <p class="eyebrow">CONFIGURATION</p>
+    <h1>Entrepôts</h1>
+    <p class="lede">Consultez les emplacements et leurs capacités de stock.</p>
+  </div>
+  </header>
+
+<section class="card card-body flush">
+  @if (warehouses$ | async; as warehouses) {
+    <app-data-table [columns]="columns" [rows]="warehouses" />
+  }
+</section>
+</section>

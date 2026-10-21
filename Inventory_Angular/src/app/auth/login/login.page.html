@@ -1,0 +1,65 @@
+<div class="login-container">
+  <div class="login-card">
+    <div class="login-header">
+      <h1>StockFlow</h1>
+      <p>Inventory Management System</p>
+    </div>
+
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+      <!-- Error Message -->
+      <div *ngIf="error" class="alert alert-error">
+        <span>{{ error }}</span>
+      </div>
+
+      <!-- Email Field -->
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input
+          type="email"
+          id="email"
+          class="form-control"
+          formControlName="email"
+          placeholder="Enter your email"
+          [class.is-invalid]="submitted && f['email'].errors"
+        />
+        <div *ngIf="submitted && f['email'].errors" class="error-text">
+          <span *ngIf="f['email'].errors['required']">Email is required</span>
+          <span *ngIf="f['email'].errors['email']">Please enter a valid email</span>
+        </div>
+      </div>
+
+      <!-- Password Field -->
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input
+          type="password"
+          id="password"
+          class="form-control"
+          formControlName="password"
+          placeholder="Enter your password"
+          [class.is-invalid]="submitted && f['password'].errors"
+        />
+        <div *ngIf="submitted && f['password'].errors" class="error-text">
+          <span *ngIf="f['password'].errors['required']">Password is required</span>
+          <span *ngIf="f['password'].errors['minlength']">Password must be at least 6 characters</span>
+        </div>
+      </div>
+
+      <!-- Submit Button -->
+      <button
+        type="submit"
+        class="btn btn-primary"
+        [disabled]="loading"
+      >
+        <span *ngIf="!loading">Sign In</span>
+        <span *ngIf="loading">Signing in...</span>
+      </button>
+    </form>
+
+    <div class="login-footer">
+      <p>Demo credentials:</p>
+      <p class="demo-text">Email: demo@example.com</p>
+      <p class="demo-text">Password: password123</p>
+    </div>
+  </div>
+</div>

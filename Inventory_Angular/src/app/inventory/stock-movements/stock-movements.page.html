@@ -1,0 +1,15 @@
+<section class="page">
+  <header class="page-head">
+  <div>
+    <p class="eyebrow">GESTION DES STOCKS</p>
+    <h1>Mouvements de stock</h1>
+    <p class="lede">Suivez les entrées, sorties et ajustements de stock.</p>
+  </div>
+  </header>
+
+<section class="card card-body flush">
+  @if (movements$ | async; as movements) {
+    <app-data-table [columns]="columns" [rows]="movements" />
+  }
+</section>
+</section>

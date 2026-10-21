@@ -7,6 +7,9 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/Dotnet.gitignore
 
+Inventory_React_before_Claude/
+Inventory_Angular - bak/
+
 .vs/
 **/bin/
 **/obj/
