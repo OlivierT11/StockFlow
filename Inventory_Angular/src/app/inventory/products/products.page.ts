@@ -1,19 +1,26 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { catchError, of } from 'rxjs';
-import { DataTableColumn } from '../../shared/components/data-table/data-table';
+import { Router } from '@angular/router';
+
+import {
+  DataTable,
+  type DataTableColumn
+} from '../../shared/components/data-table/data-table';
+
 import { Product } from './product.model';
-import { ProductsApi } from './products-api';
-import { AuthService } from '../../auth/auth.service';
+import { ProductsApi } from './services/products-api';
+import { AsyncPipe } from '@angular/common';
 
 @Component({
   selector: 'app-products-page',
-  standalone: false,
+  imports: [AsyncPipe, DataTable],
   templateUrl: './products.page.html',
 })
-export class ProductsPage implements OnInit {
+export class ProductsPage {
+
   private readonly productsApi = inject(ProductsApi);
-  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
 
   readonly products$: Observable<Product[]> = this.productsApi.getAll().pipe(
     catchError(error => {
@@ -21,21 +28,18 @@ export class ProductsPage implements OnInit {
       return of([]);
     })
   );
+
   readonly columns: DataTableColumn[] = [
-    { key: 'sku', label: 'Référence' },
+    { key: 'id', label: 'Référence' },
     { key: 'name', label: 'Produit' },
     { key: 'categoryName', label: 'Catégorie' },
-    { key: 'quantity', label: 'Quantité' },
-    { key: 'minimumStock', label: 'Seuil minimum' },
-    { key: 'unitPrice', label: 'Prix unitaire' },
+    { key: 'stock', label: 'Quantité' },
+    { key: 'lowStockThreshold', label: 'Seuil minimum' },
+    { key: 'price', label: 'Prix unitaire' },
     { key: 'warehouseName', label: 'Entrepôt' },
   ];
 
-  ngOnInit(): void {
-    const token = this.authService.getToken();
-    console.log('📋 ProductsPage ngOnInit - Token disponible:', token ? 'OUI (longueur: ' + token.length + ')' : 'NON');
-    if (token) {
-      console.log('📋 Token:', token.substring(0, 80) + '...');
-    }
+  addProduct(): void {
+    this.router.navigate(['/products/new']);
   }
 }

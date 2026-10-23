@@ -1,12 +1,18 @@
 import { Component, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { DataTableColumn } from '../../shared/components/data-table/data-table';
+
+import {
+  DataTable,
+  type DataTableColumn
+} from '../../shared/components/data-table/data-table';
+
 import { StockMovement } from './stock-movement.model';
 import { StockMovementsApi } from './stock-movements-api';
+import { AsyncPipe } from '@angular/common';
 
 @Component({
   selector: 'app-stock-movements-page',
-  standalone: false,
+  imports: [AsyncPipe, DataTable], 
   templateUrl: './stock-movements.page.html',
 })
 export class StockMovementsPage {

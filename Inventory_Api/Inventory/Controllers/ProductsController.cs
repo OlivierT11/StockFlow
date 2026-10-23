@@ -34,7 +34,7 @@ public class ProductsController : ControllerBase
     /// <returns>The list of all products.</returns>
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    [Authorize(Roles = "Admin,User")]
+    //[Authorize(Roles = "Admin,User")]
     public async Task<ActionResult<List<ProductResponseDto>>> GetAll(
         CancellationToken cancellationToken = default)
     {

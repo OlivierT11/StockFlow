@@ -1,8 +1,8 @@
 import { Pipe, PipeTransform } from '@angular/core';
 
+// Pipe that formats a date value into a human-readable string in French locale.
 @Pipe({
   name: 'dateFormat',
-  standalone: false,
 })
 export class DateFormatPipe implements PipeTransform {
   transform(value: Date | string | number | null | undefined): string {

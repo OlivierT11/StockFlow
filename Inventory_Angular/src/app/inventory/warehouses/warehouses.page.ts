@@ -1,17 +1,26 @@
 import { Component, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { DataTableColumn } from '../../shared/components/data-table/data-table';
+
+import {
+  DataTable,
+  type DataTableColumn
+} from '../../shared/components/data-table/data-table';
+
 import { Warehouse } from './warehouse.model';
 import { WarehousesApi } from './warehouses-api';
+import { AsyncPipe } from '@angular/common';
 
 @Component({
   selector: 'app-warehouses-page',
-  standalone: false,
+  imports: [AsyncPipe, DataTable],
   templateUrl: './warehouses.page.html',
 })
 export class WarehousesPage {
   private readonly warehousesApi = inject(WarehousesApi);
-  readonly warehouses$: Observable<Warehouse[]> = this.warehousesApi.getAll();
+
+  readonly warehouses$: Observable<Warehouse[]> =
+    this.warehousesApi.getAll();
+
   readonly columns: DataTableColumn[] = [
     { key: 'name', label: 'Entrepôt' },
     { key: 'address', label: 'Adresse' },

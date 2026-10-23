@@ -1,10 +1,9 @@
 export interface Product {
-  id: string;
-  sku: string;
-  name: string;
-  categoryName: string;
-  quantity: number;
-  minimumStock: number;
-  unitPrice: number;
-  warehouseName: string;
+    id: number,
+    name: string,
+    price: number,
+    stock: number,
+    lowStockThreshold: number,
+    categoryId: number,
+    categoryName: string
 }

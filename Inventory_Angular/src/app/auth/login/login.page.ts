@@ -1,12 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { AuthService } from '../auth.service';
 import { LoginRequest } from '../models/user.model';
 
 @Component({
   selector: 'app-login-page',
-  standalone: false,
+  imports: [ReactiveFormsModule],
   templateUrl: './login.page.html',
   styleUrl: './login.page.css'
 })
@@ -17,12 +17,10 @@ export class LoginPage implements OnInit {
   error = '';
   returnUrl: string = '';
 
-  constructor(
-    private formBuilder: FormBuilder,
-    private route: ActivatedRoute,
-    private router: Router,
-    private authService: AuthService
-  ) {}
+  private readonly formBuilder = inject(FormBuilder);
+  private readonly route = inject(ActivatedRoute);
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
 
   ngOnInit(): void {
     // Get return url from route parameters or default to '/'
