@@ -2,22 +2,15 @@
   "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
   "version": 1,
   "cli": {
-    "packageManager": "npm",
-    "analytics": "c36fdbc0-6e4e-4de1-901e-fda4dcba4842"
+    "packageManager": "npm"
   },
   "newProjectRoot": "projects",
   "projects": {
-    "Inventory_Angular": {
+    "InventoryAngular": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
-          "standalone": false
-        },
-        "@schematics/angular:directive": {
-          "standalone": false
-        },
-        "@schematics/angular:pipe": {
-          "standalone": false
+          "style": "scss"
         }
       },
       "root": "",
@@ -29,6 +22,7 @@
           "options": {
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
             "assets": [
               {
                 "glob": "**/*",
@@ -36,7 +30,7 @@
               }
             ],
             "styles": [
-              "src/styles.css"
+              "src/styles.scss"
             ]
           },
           "configurations": {
@@ -67,22 +61,16 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "Inventory_Angular:build:production"
+              "buildTarget": "InventoryAngular:build:production"
             },
             "development": {
-              "buildTarget": "Inventory_Angular:build:development"
+              "buildTarget": "InventoryAngular:build:development"
             }
           },
-          "defaultConfiguration": "development",
-          "options": {
-            "port": 55686
-          }
+          "defaultConfiguration": "development"
         },
         "test": {
-          "builder": "@angular/build:unit-test",
-          "options": {
-            "karmaConfig": "karma.conf.js"
-          }
+          "builder": "@angular/build:unit-test"
         }
       }
     }
