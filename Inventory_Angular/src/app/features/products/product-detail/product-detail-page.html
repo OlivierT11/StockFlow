@@ -1,0 +1,59 @@
+@if (product.error()) {
+  <app-error-banner [error]="product.error()" title="Impossible de charger le produit." (retry)="product.reload()" />
+} @else if (product.hasValue()) {
+  @let p = product.value();
+
+  <app-page-head [title]="p.name" [lede]="(p.categoryName ?? 'Sans catégorie') + ' · Réf. ' + p.id">
+    <nav crumbs class="breadcrumb" aria-label="Fil d’Ariane">
+      <a routerLink="/produits">Produits</a><app-icon name="chevron-right" /><span>{{ p.name }}</span>
+    </nav>
+    @if (auth.isAdmin()) {
+      <div actions class="page-actions">
+        <button type="button" class="btn btn-primary" (click)="showMovementForm.set(true)">
+          <app-icon name="moves" />Nouveau mouvement
+        </button>
+        <a class="btn btn-secondary" [routerLink]="['/produits', p.id, 'modifier']"><app-icon name="pencil" />Modifier</a>
+      </div>
+    }
+  </app-page-head>
+
+  <div class="detail-grid">
+    <section class="card" aria-labelledby="info-title">
+      <div class="card-head">
+        <h2 id="info-title">Informations</h2>
+        <app-stock-badge [product]="p" />
+      </div>
+      <div class="card-body">
+        <dl class="dl">
+          <div class="dl-row"><dt>Unités en stock</dt><dd>{{ p.stock | number }}</dd></div>
+          <div class="dl-row"><dt>Valeur du stock</dt><dd>{{ p.price * p.stock | currency }}</dd></div>
+          <div class="dl-row"><dt>Prix unitaire</dt><dd>{{ p.price | currency }}</dd></div>
+          <div class="dl-row">
+            <dt>Seuil de stock bas</dt>
+            <dd>{{ p.lowStockThreshold | number }} <span class="sub">Alerte dès que le stock est inférieur ou égal</span></dd>
+          </div>
+          <div class="dl-row"><dt>Catégorie</dt><dd>{{ p.categoryName ?? '—' }}</dd></div>
+        </dl>
+      </div>
+      @if (!auth.isAdmin()) {
+        <div class="card-foot muted"><app-icon name="lock" /> Lecture seule : le rôle User ne peut pas modifier les produits.</div>
+      }
+    </section>
+
+    <section class="card" aria-labelledby="hist-title">
+      <div class="card-head"><h2 id="hist-title">Historique des mouvements</h2></div>
+      <!-- TODO(B4, B5) : avec la ressource `history` de la classe :
+           erreur → <app-error-banner> ; chargement → "Chargement…" ;
+           données → un tableau (Date | apiDate, Type <app-movement-type-badge>, Quantité m.delta | signedQty,
+           Entrepôt, Notes ou "—") + <app-pagination [size]="8" (pageChange)="…"> qui met ?page= dans l'URL ;
+           aucun mouvement → <app-empty-state icon="history" title="Aucun mouvement enregistré" />. -->
+      <p class="card-body muted">À implémenter — TODO(B4, B5).</p>
+    </section>
+  </div>
+
+  <!-- LEARN(B3) : parent → enfant par les inputs ([product], [open]), enfant → parent par les outputs
+       ((closed), (saved)). Le formulaire ne touche jamais lui-même à l'état de cette page. -->
+  <app-movement-form [product]="p" [open]="showMovementForm()" (closed)="showMovementForm.set(false)" (saved)="onMovementSaved()" />
+} @else {
+  <p class="muted" aria-busy="true">Chargement…</p>
+}

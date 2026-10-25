@@ -1,0 +1,16 @@
+<app-page-head title="Entrepôts" lede="Lieux de stockage où sont enregistrés les mouvements." />
+
+@if (warehouses.error()) {
+  <app-error-banner [error]="warehouses.error()" title="Impossible de charger les entrepôts." (retry)="warehouses.reload()" />
+} @else if (!warehouses.hasValue()) {
+  <p class="muted" aria-busy="true">Chargement…</p>
+} @else {
+  <section class="card">
+    <!-- TODO(A2) : remplace cette liste par le tableau décrit dans warehouses-page.ts. -->
+    <ul>
+      @for (warehouse of warehouses.value(); track warehouse.id) {
+        <li>{{ warehouse.name }}</li>
+      }
+    </ul>
+  </section>
+}

@@ -1,0 +1,50 @@
+<app-auth-layout>
+  <div>
+    <h2>Créer un compte</h2>
+    <p class="lede">Un nouveau compte a le rôle User (lecture et mouvements de stock).</p>
+  </div>
+
+  @if (error()) {
+    <div class="form-error" role="alert">
+      <app-icon name="alert-circle" /><span>{{ error() }}</span>
+    </div>
+  }
+
+  <!-- LEARN(C2) : [formGroup] relie le <form> au FormGroup de la classe ; formControlName relie chaque champ à
+       l'un de ses contrôles. Les validateurs vivent dans la classe, pas dans le template. -->
+  <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <!-- Exemple commenté d'erreur de champ : on lit l'état du contrôle depuis la classe. -->
+    @let username = form.controls.username;
+    <div class="field" [class.has-error]="username.invalid && username.touched">
+      <label class="field-label" for="f-username">Nom d’utilisateur<span class="req" aria-hidden="true">*</span></label>
+      <input id="f-username" class="input" autocomplete="username" formControlName="username" />
+      @if (username.touched && username.hasError('required')) {
+        <span class="field-error"><app-icon name="alert-circle" /><span>Le nom d’utilisateur est obligatoire.</span></span>
+      }
+    </div>
+
+    <!-- TODO(C2) : même affichage d'erreur pour les trois champs ci-dessous :
+         email    → required : "Saisissez votre adresse e-mail." · email : "Le format de l’adresse n’est pas valide."
+         password → required · minlength : "8 caractères minimum."
+         confirm  → required, et l'erreur du GROUPE : form.hasError('passwordsMismatch') → "Les mots de passe ne correspondent pas." -->
+    <div class="field">
+      <label class="field-label" for="f-email">Adresse e-mail<span class="req" aria-hidden="true">*</span></label>
+      <input id="f-email" class="input" type="email" autocomplete="email" formControlName="email" />
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="f-password">Mot de passe<span class="req" aria-hidden="true">*</span></label>
+      <input id="f-password" class="input" type="password" autocomplete="new-password" formControlName="password" />
+      <span class="field-hint">8 caractères minimum.</span>
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="f-confirm">Confirmation du mot de passe<span class="req" aria-hidden="true">*</span></label>
+      <input id="f-confirm" class="input" type="password" autocomplete="new-password" formControlName="confirm" />
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-lg btn-block" [class.is-loading]="loading()">Créer le compte</button>
+  </form>
+
+  <p class="auth-foot">Déjà un compte ? <a routerLink="/login">Se connecter</a></p>
+</app-auth-layout>

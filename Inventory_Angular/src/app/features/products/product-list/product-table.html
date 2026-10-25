@@ -1,0 +1,47 @@
+<table class="table">
+  <thead>
+    <tr>
+      <th scope="col" [attr.aria-sort]="ariaSort('name')">
+        <button type="button" class="th-sort" (click)="sortChange.emit('name')">Nom<app-icon name="arrow-up" /></button>
+      </th>
+      <th scope="col">Catégorie</th>
+      <th scope="col" class="num" [attr.aria-sort]="ariaSort('price')">
+        <button type="button" class="th-sort" (click)="sortChange.emit('price')">Prix<app-icon name="arrow-up" /></button>
+      </th>
+      <th scope="col" class="num" [attr.aria-sort]="ariaSort('stock')">
+        <button type="button" class="th-sort" (click)="sortChange.emit('stock')">Stock<app-icon name="arrow-up" /></button>
+      </th>
+      <th scope="col"><span class="sr-only">Actions</span></th>
+    </tr>
+  </thead>
+  <tbody>
+    <!-- LEARN(A2) : track sur un id stable et unique. Suivre l'objet lui-même recréerait toutes les lignes à chaque
+         rechargement, puisque l'API renvoie de nouveaux objets. -->
+    @for (p of products(); track p.id) {
+      <tr>
+        <td>
+          <span class="cell-stack">
+            <a class="cell-primary" [routerLink]="['/produits', p.id]">{{ p.name }}</a>
+            <span class="cell-sub">Réf. {{ p.id }}</span>
+          </span>
+        </td>
+        <td>{{ p.categoryName ?? '—' }}</td>
+        <td class="num">{{ p.price | currency }}</td>
+        <td class="num">
+          <strong>{{ p.stock | number }}</strong>
+          <app-stock-badge [product]="p" />
+        </td>
+        <td>
+          <div class="row-actions">
+            <a class="btn btn-ghost btn-icon btn-sm" title="Voir" [routerLink]="['/produits', p.id]" [attr.aria-label]="'Voir ' + p.name">
+              <app-icon name="eye" />
+            </a>
+            <!-- TODO(A2) : pour les admins seulement (input isAdmin) : un lien "Modifier" vers ['/produits', p.id, 'modifier']
+                 (icône "pencil") et un bouton "Supprimer" (icône "trash", classe "danger") qui émet deleteRequest
+                 avec le produit. Copie le lien "Voir" ci-dessus pour le balisage. -->
+          </div>
+        </td>
+      </tr>
+    }
+  </tbody>
+</table>

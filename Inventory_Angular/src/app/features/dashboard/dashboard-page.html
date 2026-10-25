@@ -1,0 +1,74 @@
+<app-page-head title="Tableau de bord" lede="Vue d’ensemble des stocks et des derniers mouvements." />
+
+@if (dashboard.error()) {
+  <app-error-banner [error]="dashboard.error()" title="Tableau de bord indisponible." (retry)="dashboard.reload()" />
+} @else if (dashboard.hasValue()) {
+  <!-- LEARN(A2) : @let déclare une variable de template : ici un nom plus court pour la valeur chargée. -->
+  @let d = dashboard.value();
+
+  <!-- Exemple commenté : interpolation {{ }}, property bindings [ ], pipes intégrés (A2, A3). -->
+  <section class="tiles" aria-label="Indicateurs clés">
+    <a class="card tile" routerLink="/produits">
+      <span class="tile-label"><app-icon name="package" />Produits référencés</span>
+      <span class="tile-value">{{ d.productCount | number }}</span>
+      <span class="tile-cta"><app-icon name="arrow-right" /></span>
+    </a>
+    <div class="card tile">
+      <span class="tile-label"><app-icon name="euro" />Valeur totale du stock</span>
+      <!-- LEARN(A3) : les pipes prennent des paramètres après ':' — code devise, affichage, nombre de chiffres. -->
+      <span class="tile-value">{{ d.totalStockValue | currency: 'EUR' : 'symbol' : '1.0-0' }}</span>
+      <span class="tile-delta">{{ d.totalStockValue | currency }} au prix d’achat</span>
+    </div>
+    <a class="card tile" routerLink="/produits" [queryParams]="{ low: 1 }" [class.is-alert]="d.lowStockProductCount > 0">
+      <span class="tile-label"><app-icon name="alert" />Produits sous seuil</span>
+      <span class="tile-value">{{ d.lowStockProductCount | number }}</span>
+      <span class="tile-cta"><app-icon name="arrow-right" /></span>
+    </a>
+    <a class="card tile" routerLink="/mouvements">
+      <span class="tile-label"><app-icon name="moves" />Derniers mouvements</span>
+      <span class="tile-value">{{ d.recentMovements.length | number }}</span>
+      <span class="tile-delta">Mis à jour à {{ d.generatedAtUtc | apiDate: 'HH:mm' }}</span>
+      <span class="tile-cta"><app-icon name="arrow-right" /></span>
+    </a>
+  </section>
+
+  <div class="dash-grid">
+    <section class="card" aria-labelledby="chart-title">
+      <div class="card-head"><h2 id="chart-title">Entrées et sorties récentes</h2></div>
+      <div class="card-body">
+        <!-- TODO(C4) : le graphique n'est pas nécessaire pour lire la page : enveloppe-le dans une vue différée,
+             pour que son code ne soit téléchargé qu'au moment où il entre dans l'écran :
+               @defer (on viewport) { <app-stock-chart … /> }
+               @placeholder { <div class="skeleton" style="height: 200px"></div> }
+             Lance `npm run build` avant et après : StockChart passe dans son propre chunk lazy. Il reste dans les
+             `imports` du composant : @defer change seulement QUAND son code est chargé. -->
+
+        <app-stock-chart [movements]="d.recentMovements" />
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="low-title">
+      <div class="card-head">
+        <h2 id="low-title">Produits sous seuil</h2>
+        <a class="btn btn-ghost btn-sm" routerLink="/produits" [queryParams]="{ low: 1 }">Voir tout<app-icon name="arrow-right" /></a>
+      </div>
+      <!-- TODO(A2) : liste les 5 premiers produits de d.lowStockProducts avec @for (track p.id) et @empty :
+             <ul class="mini-list"> <li> le nom en lien vers /produits/{{ p.id }} (routerLink), le nom de la catégorie
+             ou "Sans catégorie", le stock dans un <span class="mv-qty"> avec la classe "out" quand le stock vaut 0 </li> </ul>
+           @empty → <app-empty-state icon="check-circle" title="Tous les stocks sont au-dessus du seuil" />
+           Indice : d.lowStockProducts.slice(0, 5) fonctionne dans une expression de template. -->
+    </section>
+  </div>
+
+  <section class="card" aria-labelledby="recent-title">
+    <div class="card-head">
+      <h2 id="recent-title">Derniers mouvements</h2>
+      <a class="btn btn-ghost btn-sm" routerLink="/mouvements">Journal complet<app-icon name="arrow-right" /></a>
+    </div>
+    <!-- TODO(A2, A3) : un tableau de d.recentMovements : Date (pipe apiDate), Produit (lien), Type (<app-movement-type-badge>),
+         Quantité (m.delta | signedQty, dans un <td class="num">), Entrepôt. Utilise @for … @empty avec un <app-empty-state>.
+         Colore ensuite la quantité : classe "text-success" pour In, "text-warning" pour Out, avec des bindings [class.x]="…". -->
+  </section>
+} @else {
+  <p class="muted" aria-busy="true">Chargement…</p>
+}

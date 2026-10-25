@@ -1,0 +1,74 @@
+<app-auth-layout>
+  <div>
+    <h2>Connexion</h2>
+    <p class="lede">Accédez à votre espace de gestion d’inventaire.</p>
+  </div>
+
+  @if (error()) {
+    <div class="form-error" role="alert">
+      <app-icon name="alert-circle" /><span>{{ error() }}</span>
+    </div>
+  }
+
+  <!-- LEARN(B6) : #form="ngForm" est une variable de référence de template : elle nomme la directive NgForm que
+       FormsModule attache à chaque <form>. novalidate désactive les bulles de validation du navigateur. -->
+  <form #form="ngForm" (ngSubmit)="submit(form)" novalidate>
+    <!-- LEARN(B6) : `required` et `email` sont des directives de validation. #emailField="ngModel" expose l'état du
+         contrôle : valid / invalid, touched (a perdu le focus une fois), dirty (modifié), errors. -->
+    <div class="field" [class.has-error]="emailField.invalid && emailField.touched">
+      <label class="field-label" for="f-email">Adresse e-mail<span class="req" aria-hidden="true">*</span></label>
+      <input
+        id="f-email"
+        name="email"
+        class="input"
+        type="email"
+        autocomplete="username"
+        placeholder="prenom.nom@inventory.fr"
+        required
+        email
+        [(ngModel)]="email"
+        #emailField="ngModel"
+      />
+      @if (emailField.invalid && emailField.touched) {
+        <span class="field-error">
+          <app-icon name="alert-circle" />
+          <span>{{ emailField.hasError('required') ? 'Saisissez votre adresse e-mail.' : 'Le format de l’adresse n’est pas valide.' }}</span>
+        </span>
+      }
+    </div>
+
+    <div class="field" [class.has-error]="passwordField.invalid && passwordField.touched">
+      <label class="field-label" for="f-password">Mot de passe<span class="req" aria-hidden="true">*</span></label>
+      <div class="input-affix">
+        <input
+          id="f-password"
+          name="password"
+          class="input"
+          autocomplete="current-password"
+          required
+          [type]="showPassword() ? 'text' : 'password'"
+          [(ngModel)]="password"
+          #passwordField="ngModel"
+        />
+        <button
+          type="button"
+          class="affix-btn"
+          [attr.aria-label]="showPassword() ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+          [attr.aria-pressed]="showPassword()"
+          (click)="showPassword.set(!showPassword())"
+        >
+          <app-icon [name]="showPassword() ? 'eye-off' : 'eye'" />
+        </button>
+      </div>
+      @if (passwordField.invalid && passwordField.touched) {
+        <span class="field-error"><app-icon name="alert-circle" /><span>Saisissez votre mot de passe.</span></span>
+      }
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-lg btn-block" [class.is-loading]="loading()" [attr.aria-busy]="loading() || null">
+      Se connecter
+    </button>
+  </form>
+
+  <p class="auth-foot">Pas encore de compte ? <a routerLink="/inscription">Créer un compte</a></p>
+</app-auth-layout>

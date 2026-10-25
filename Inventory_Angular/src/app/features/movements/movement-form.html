@@ -1,0 +1,49 @@
+<app-modal [title]="'Nouveau mouvement · ' + product().name" [open]="open()" (closed)="closed.emit()">
+  <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <div class="modal-body od-stack" style="--od-gap: 16px">
+      <div class="field">
+        <label class="field-label" for="mv-warehouse">Entrepôt<span class="req" aria-hidden="true">*</span></label>
+        <select id="mv-warehouse" class="select" formControlName="warehouseId">
+          <option [ngValue]="null" disabled>Choisir…</option>
+          @if (warehouses.hasValue()) {
+            @for (w of warehouses.value(); track w.id) {
+              <option [ngValue]="w.id">{{ w.name }}</option>
+            }
+          }
+        </select>
+        @if (warehouses.error()) {
+          <span class="field-error"><span>Entrepôts indisponibles : {{ warehouses.error()?.message }}</span></span>
+        }
+      </div>
+
+      <div class="field">
+        <span class="field-label" id="mv-type-label">Type de mouvement</span>
+        <div class="seg" role="radiogroup" aria-labelledby="mv-type-label">
+          @for (t of types; track t.value) {
+            <input type="radio" [id]="'mv-type-' + t.value" formControlName="type" [value]="t.value" />
+            <label [for]="'mv-type-' + t.value">{{ t.label }}</label>
+          }
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="mv-quantity">Quantité<span class="req" aria-hidden="true">*</span></label>
+        <input id="mv-quantity" class="input" type="number" step="1" formControlName="quantity" />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="mv-notes">Notes</label>
+        <textarea id="mv-notes" class="input" rows="2" maxlength="250" formControlName="notes"></textarea>
+      </div>
+
+      <div class="preview" [class.is-negative]="stockAfter() < 0" aria-live="polite">
+        <span class="od-stat"><span class="v">{{ product().stock | number }}</span><span class="l">Stock actuel</span></span>
+        <span class="od-stat"><span class="v after">{{ stockAfter() | number }}</span><span class="l">Stock après</span></span>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-secondary" (click)="closed.emit()">Annuler</button>
+      <button type="submit" class="btn btn-primary" [disabled]="stockAfter() < 0" [class.is-loading]="saving()">Enregistrer</button>
+    </div>
+  </form>
+</app-modal>

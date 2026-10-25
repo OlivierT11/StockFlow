@@ -1,0 +1,95 @@
+<app-page-head title="Produits" [lede]="list() ? list()!.totalItems + ' produit(s)' : undefined">
+  @if (auth.isAdmin()) {
+    <a actions class="btn btn-primary" routerLink="/produits/nouveau"><app-icon name="plus" />Ajouter un produit</a>
+  }
+</app-page-head>
+
+<section class="card">
+  <!-- LEARN(B6) : un formulaire template-driven utilisé comme barre de filtres. (ngSubmit) se déclenche sur Entrée
+       dans n'importe quel champ. -->
+  <form class="toolbar" role="search" aria-label="Filtrer les produits" (ngSubmit)="submitSearch()" novalidate>
+    <div class="field f-search">
+      <label class="field-label" for="f-search">Recherche</label>
+      <div class="input-search">
+        <app-icon name="search" />
+        <!-- LEARN(B6) : le binding bidirectionnel [( )] = property binding [ngModel] + event binding (ngModelChange). -->
+        <input id="f-search" class="input" type="search" name="search" placeholder="Nom du produit" [(ngModel)]="searchText" />
+      </div>
+    </div>
+
+    <!-- Exemple commenté : [ngModel] à sens unique depuis l'URL, et (ngModelChange) pour réécrire l'URL. -->
+    <div class="field f-cat">
+      <label class="field-label" for="f-cat">Catégorie</label>
+      <select id="f-cat" class="select" name="cat" [ngModel]="cat() ?? ''" (ngModelChange)="apply({ cat: $event })">
+        <option value="">Toutes</option>
+        @if (categories.hasValue()) {
+          @for (c of categories.value(); track c.id) {
+            <option [value]="'' + c.id">{{ c.name }}</option>
+          }
+        }
+      </select>
+    </div>
+
+    <!-- TODO(B6) : deux champs de prix, "Prix min (€)" et "Prix max (€)" (classe "field f-price", <input type="number" min="0">),
+         reliés comme le select de catégorie : [ngModel]="min() ?? ''", et appliqués sur (change) plutôt qu'à chaque touche.
+         Puis une case à cocher "Stock bas uniquement" (<label class="check f-check">) : [ngModel]="low() === '1'"
+         (ngModelChange)="apply({ low: $event })". -->
+
+    <div class="toolbar-end">
+      @if (hasFilters()) {
+        <button type="button" class="btn btn-ghost" (click)="clearFilters()"><app-icon name="x" />Effacer les filtres</button>
+      }
+    </div>
+  </form>
+
+  @if (products.error()) {
+    <div class="card-body">
+      <app-error-banner [error]="products.error()" title="Impossible de charger les produits." (retry)="products.reload()" />
+    </div>
+  } @else if (list(); as data) {
+    <div class="table-wrap" [class.is-refreshing]="products.isLoading()">
+      @if (data.totalItems) {
+        <app-product-table
+          [products]="data.products"
+          [sortBy]="query().sortBy!"
+          [sortDirection]="query().sortDirection!"
+          [isAdmin]="auth.isAdmin()"
+          (sortChange)="sortBy($event)"
+          (deleteRequest)="toDelete.set($event)"
+        />
+      } @else {
+        <app-empty-state
+          icon="search"
+          title="Aucun produit ne correspond"
+          [text]="hasFilters() ? 'Essayez d’élargir la recherche ou de retirer un filtre.' : 'Le catalogue est vide.'"
+        />
+      }
+    </div>
+    @if (data.totalItems) {
+      <app-pagination
+        noun="produit"
+        [page]="query().askedPage!"
+        [pages]="data.totalPages"
+        [total]="data.totalItems"
+        [size]="query().pageSize!"
+        [sizes]="sizes"
+        (pageChange)="apply({ page: $event })"
+        (sizeChange)="apply({ size: $event })"
+      />
+    }
+  } @else {
+    <p class="card-body muted" aria-busy="true">Chargement…</p>
+  }
+</section>
+
+<app-modal title="Supprimer ce produit ?" [open]="toDelete() !== null" (closed)="toDelete.set(null)">
+  @if (toDelete(); as product) {
+    <div class="modal-body">
+      <p><strong>{{ product.name }}</strong> sera supprimé du catalogue. Un produit qui a des mouvements ne peut pas être supprimé.</p>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-secondary" (click)="toDelete.set(null)">Annuler</button>
+      <button type="button" class="btn btn-danger" (click)="confirmDelete(product)">Supprimer</button>
+    </div>
+  }
+</app-modal>

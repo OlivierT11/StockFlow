@@ -1,0 +1,74 @@
+<div class="app">
+  <!-- LEARN(A3) : [class.is-open] ajoute ou retire une classe selon un booléen. -->
+  <aside class="sidebar" id="sidebar" aria-label="Navigation principale" [class.is-open]="sidebarOpen()">
+    <div class="brand">
+      <span class="brand-mark"><app-icon name="package" /></span>
+      <span class="brand-name">Inventory</span>
+    </div>
+    <nav class="nav">
+      <span class="nav-section">Gestion</span>
+      @for (item of nav; track item.path) {
+        <!-- LEARN(B5) : routerLink navigue sans recharger la page ; routerLinkActive ajoute la classe tant que
+             la route du lien est active. `exact: true` évite que "/" corresponde à toutes les pages. -->
+        <a
+          class="nav-link"
+          [routerLink]="item.path"
+          routerLinkActive="active"
+          ariaCurrentWhenActive="page"
+          [routerLinkActiveOptions]="{ exact: item.path === '/' }"
+          [title]="item.label"
+          (click)="sidebarOpen.set(false)"
+        >
+          <app-icon [name]="item.icon" />
+          <span class="nav-label">{{ item.label }}</span>
+        </a>
+      }
+    </nav>
+    <div class="sidebar-foot">Inventory · Angular</div>
+  </aside>
+  @if (sidebarOpen()) {
+    <div class="scrim is-open" (click)="sidebarOpen.set(false)"></div>
+  }
+
+  <div class="main">
+    <header class="topbar">
+      <button
+        type="button"
+        class="btn btn-ghost btn-icon menu-btn"
+        aria-controls="sidebar"
+        [attr.aria-expanded]="sidebarOpen()"
+        [attr.aria-label]="sidebarOpen() ? 'Fermer la navigation' : 'Ouvrir la navigation'"
+        (click)="sidebarOpen.set(!sidebarOpen())"
+      >
+        <app-icon name="menu" />
+      </button>
+      <span class="topbar-title"></span>
+      <!-- LEARN(A2) : @if (expr; as name) garde la valeur affinée : dans le bloc, `user` n'est pas null. -->
+      @if (auth.user(); as user) {
+        <span class="user-chip">
+          <span class="user-meta">
+            <span class="user-email od-truncate">{{ user.email }}</span>
+            <span class="user-role">{{ auth.isAdmin() ? 'Administrateur' : 'Utilisateur' }}</span>
+          </span>
+        </span>
+        <button type="button" class="btn btn-ghost btn-sm" (click)="logout()">
+          <app-icon name="logout" />Déconnexion
+        </button>
+      }
+    </header>
+
+    @if (auth.sessionExpired()) {
+      <div class="banner banner-warning session-banner" role="alert">
+        <app-icon name="alert" />
+        <span class="banner-text">
+          <strong>Session expirée.</strong> Reconnectez-vous pour continuer : les actions d’écriture sont suspendues.
+        </span>
+        <button type="button" class="btn btn-sm btn-secondary" (click)="reconnect()">Se reconnecter</button>
+      </div>
+    }
+
+    <main class="page" tabindex="-1">
+      <router-outlet />
+    </main>
+  </div>
+</div>

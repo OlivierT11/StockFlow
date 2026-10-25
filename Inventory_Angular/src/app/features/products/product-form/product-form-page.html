@@ -1,0 +1,75 @@
+<app-page-head [title]="editing() ? 'Modifier le produit' : 'Nouveau produit'">
+  <nav crumbs class="breadcrumb" aria-label="Fil d’Ariane">
+    <a routerLink="/produits">Produits</a><app-icon name="chevron-right" /><span>{{ editing() ? 'Modification' : 'Création' }}</span>
+  </nav>
+</app-page-head>
+
+@if (conflict()) {
+  <div class="banner banner-danger" role="alert">
+    <app-icon name="alert" />
+    <span class="banner-text">
+      <strong>Conflit de modification (409).</strong> Ce produit a été modifié par quelqu’un d’autre. Rechargez-le avant d’enregistrer.
+    </span>
+  </div>
+}
+
+<section class="card" style="max-width: 760px">
+  <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <div class="card-body">
+      <div class="form-grid">
+        <!-- Exemple commenté : un champ avec ses messages d'erreur. -->
+        @let name = form.controls.name;
+        <div class="field span-2" [class.has-error]="name.invalid && name.touched">
+          <label class="field-label" for="f-name">Nom du produit<span class="req" aria-hidden="true">*</span></label>
+          <input id="f-name" class="input" maxlength="100" formControlName="name" />
+          <span class="field-hint">100 caractères maximum.</span>
+          @if (name.touched && name.hasError('required')) {
+            <span class="field-error"><app-icon name="alert-circle" /><span>Le nom est obligatoire.</span></span>
+          }
+          @if (name.hasError('server')) {
+            <span class="field-error"><app-icon name="alert-circle" /><span>{{ name.getError('server') }}</span></span>
+          }
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="f-category">Catégorie<span class="req" aria-hidden="true">*</span></label>
+          <select id="f-category" class="select" formControlName="categoryId">
+            <!-- LEARN(C2) : [ngValue] garde le type number ; [value] le transformerait en chaîne. -->
+            <option [ngValue]="null" disabled>Choisir…</option>
+            @if (categories.hasValue()) {
+              @for (c of categories.value(); track c.id) {
+                <option [ngValue]="c.id">{{ c.name }}</option>
+              }
+            }
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="f-price">Prix unitaire (€)<span class="req" aria-hidden="true">*</span></label>
+          <input id="f-price" class="input" type="number" min="0" step="0.01" formControlName="price" />
+        </div>
+
+        @if (!editing()) {
+          <div class="field">
+            <label class="field-label" for="f-stock">Stock initial<span class="req" aria-hidden="true">*</span></label>
+            <input id="f-stock" class="input" type="number" min="0" step="1" formControlName="stock" />
+          </div>
+        }
+
+        <div class="field">
+          <label class="field-label" for="f-threshold">Seuil de stock bas<span class="req" aria-hidden="true">*</span></label>
+          <input id="f-threshold" class="input" type="number" min="0" step="1" formControlName="lowStockThreshold" />
+          <span class="field-hint">Alerte quand le stock est inférieur ou égal à ce seuil.</span>
+        </div>
+
+        <!-- TODO(C2) : les messages d'erreur de categoryId, price, stock et lowStockThreshold, comme pour le champ name. -->
+      </div>
+    </div>
+    <div class="card-foot" style="display: flex; justify-content: flex-end; gap: 8px">
+      <button type="button" class="btn btn-secondary" (click)="cancel()">Annuler</button>
+      <button type="submit" class="btn btn-primary" [class.is-loading]="saving()">
+        {{ editing() ? 'Enregistrer' : 'Créer le produit' }}
+      </button>
+    </div>
+  </form>
+</section>
