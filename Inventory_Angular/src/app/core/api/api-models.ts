@@ -13,7 +13,8 @@ export interface Product {
   price: number;
   stock: number;
   lowStockThreshold: number;
-  // LEARN(B1) : `number | null` n'est pas la même chose que `categoryId?: number` (qui veut dire « peut être absent »).
+  // LEARN(B1) : `number | null` n'est pas la même chose que `categoryId?: number` (qui veut dire "propriété facultative" ou « peut être absent »).
+  // number|null veut dire "la propriété doit être présente, mais peut être sans valeur"
   categoryId: number | null;
   categoryName: string | null;
 }
