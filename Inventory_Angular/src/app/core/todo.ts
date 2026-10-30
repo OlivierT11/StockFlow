@@ -9,6 +9,19 @@ export class TodoError extends Error {
 }
 
 /**
+Pour l’attraper :
+
+try {
+  // code
+} catch (error) {
+  if (error instanceof TodoError) {
+    console.error(error.message);
+  }
+}
+
+*/
+
+/**
  * Stub for an exercise method that returns an Observable: it fails at once with a TodoError.
  * Replace the call with the real implementation.
  *
