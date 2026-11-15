@@ -1,15 +1,12 @@
 <div class="app">
   <aside class="sidebar" [class.is-open]="menuOpen()">
-    <a class="brand" routerLink="/dashboard" (click)="closeMenu()">
+    <a class="brand" routerLink="/products" (click)="closeMenu()">
       <span class="brand-mark" aria-hidden="true">S</span>
       <span class="brand-name">StockFlow</span>
     </a>
 
     <nav class="nav" aria-label="Navigation principale">
       <span class="nav-section">Inventaire</span>
-      <a class="nav-link" routerLink="/dashboard" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" (click)="closeMenu()">
-        <span aria-hidden="true">⌂</span><span class="nav-label">Tableau de bord</span>
-      </a>
       <a class="nav-link" routerLink="/products" routerLinkActive="active" (click)="closeMenu()">
         <span aria-hidden="true">▦</span><span class="nav-label">Produits</span>
       </a>

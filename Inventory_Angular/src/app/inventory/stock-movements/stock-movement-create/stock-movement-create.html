@@ -1,0 +1,126 @@
+<div>
+  <section class="card">
+    <header class="card-head">
+      <div>
+        <h2>Nouveau mouvement de stock</h2>
+        <p>Les champs marqués d'un astérisque sont obligatoires.</p>
+      </div>
+    </header>
+
+    <form [formGroup]="movementForm" (ngSubmit)="onSubmit()" novalidate>
+      <div class="card-body">
+        <div class="form-field">
+          <label for="productId">Produit <span class="required">*</span></label>
+          <div class="input-suffix">
+            <select id="productId"
+                    formControlName="productId"
+                    [class.invalid]="showError('productId')"
+                    [attr.aria-invalid]="showError('productId')">
+              <option value="" disabled>Choisir un produit</option>
+              @for (product of products; track product.id) {
+              <option [value]="product.id">{{ product.name }}</option>
+              }
+            </select>
+          </div>
+
+          @if (showError('productId')) {
+          <small class="error">
+            Veuillez choisir un produit.
+          </small>
+          }
+        </div>
+
+        <div class="form-field">
+          <label for="warehouseId">Entrepôt <span class="required">*</span></label>
+          <div class="input-suffix">
+            <select id="warehouseId"
+                    formControlName="warehouseId"
+                    [class.invalid]="showError('warehouseId')"
+                    [attr.aria-invalid]="showError('warehouseId')">
+              <option value="" disabled>Choisir un entrepôt</option>
+              @for (warehouse of warehouses; track warehouse.id) {
+              <option [value]="warehouse.id">{{ warehouse.name }}</option>
+              }
+            </select>
+          </div>
+
+          @if (showError('warehouseId')) {
+          <small class="error">
+            Veuillez choisir un entrepôt.
+          </small>
+          }
+        </div>
+
+        <div class="form-field">
+          <label for="type">Type de mouvement <span class="required">*</span></label>
+          <div class="input-suffix">
+            <select id="type"
+                    formControlName="type"
+                    [class.invalid]="showError('type')"
+                    [attr.aria-invalid]="showError('type')">
+              <option value="" disabled>Choisir un type</option>
+              @for (movementType of movementTypes; track movementType.value) {
+              <option [value]="movementType.value">{{ movementType.label }}</option>
+              }
+            </select>
+          </div>
+
+          @if (showError('type')) {
+          <small class="error">
+            Veuillez choisir un type de mouvement.
+          </small>
+          }
+        </div>
+
+        <div class="form-field">
+          <label for="quantity">Quantité <span class="required">*</span></label>
+          <div class="input-suffix">
+            <input id="quantity"
+                   type="number"
+                   formControlName="quantity"
+                   min="1"
+                   step="1"
+                   [class.invalid]="showError('quantity')"
+                   [attr.aria-invalid]="showError('quantity')"
+                   aria-describedby="quantity-help quantity-error" />
+          </div>
+
+          @if (showError('quantity')) {
+          <small id="quantity-error" class="error">
+            @if (movementForm.controls.quantity.hasError('required')) {
+            La quantité est obligatoire.
+            } @else {
+            La quantité doit être supérieure ou égale à 1.
+            }
+          </small>
+          }
+        </div>
+
+        <div class="form-field">
+          <label for="reference">Document de référence</label>
+          <div class="input-suffix">
+            <input id="reference"
+                   type="text"
+                   formControlName="reference"
+                   maxlength="100"
+                   placeholder="Ex. BON-001, CMD-12345"
+                   [class.invalid]="showError('reference')"
+                   [attr.aria-invalid]="showError('reference')"
+                   aria-describedby="reference-help reference-error" />
+          </div>
+
+          @if (showError('reference')) {
+          <small id="reference-error" class="error">
+            La référence ne peut pas dépasser 100 caractères.
+          </small>
+          }
+        </div>
+      </div>
+
+      <footer class="card-foot">
+        <button type="button" (click)="cancel()">Annuler</button>
+        <button type="submit">Enregistrer le mouvement</button>
+      </footer>
+    </form>
+  </section>
+</div>

@@ -195,6 +195,7 @@ namespace Inventory.Repositories
                 catch (DbUpdateConcurrencyException)
                 {
                     // No concurrency token on this table: the only possible conflict is a row deleted by another request.
+                    // détache stored du DbContext. Une entité détachée n’est plus suivie par EF Core. Ses changements ne seront donc pas inclus dans les prochains SaveChanges() tant qu’elle n’est pas rattachée au contexte.
                     _context.Entry(stored).State = EntityState.Detached;
 
                     _logger.LogInformation(

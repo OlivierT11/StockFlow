@@ -34,7 +34,7 @@ public class ProductsController : ControllerBase
     /// <returns>The list of all products.</returns>
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    [Authorize(Roles = "Admin,User")]
+    //[Authorize(Roles = "Admin,User")]
     public async Task<ActionResult<List<ProductResponseDto>>> GetAll(
         CancellationToken cancellationToken = default)
     {
@@ -109,7 +109,7 @@ public class ProductsController : ControllerBase
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The created product.</returns>
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,User")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<ProductResponseDto>> Create(
@@ -132,7 +132,7 @@ public class ProductsController : ControllerBase
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A valid action result.</returns>
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,User")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -179,7 +179,7 @@ public class ProductsController : ControllerBase
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A valid action result.</returns>
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,User")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]

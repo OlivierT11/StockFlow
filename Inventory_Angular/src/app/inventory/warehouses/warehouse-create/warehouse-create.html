@@ -1,0 +1,67 @@
+<div>
+  <section class="card">
+    <header class="card-head">
+      <div>
+        <h2>Nouvel entrepôt</h2>
+        <p>Les champs marqués d'un astérisque sont obligatoires.</p>
+      </div>
+    </header>
+
+    <form [formGroup]="warehouseForm" (ngSubmit)="onSubmit()" novalidate>
+      <div class="card-body">
+        <div class="form-field">
+          <label for="name">Nom de l'entrepôt <span class="required">*</span></label>
+          <div class="input-suffix">
+            <input id="name"
+                   type="text"
+                   formControlName="name"
+                   maxlength="100"
+                   placeholder="Ex. Entrepôt Nord"
+                   [class.invalid]="showError('name')"
+                   [attr.aria-invalid]="showError('name')"
+                   aria-describedby="name-help name-error" />
+          </div>
+
+          @if (showError('name')) {
+          <small id="name-error" class="error">
+            @if (warehouseForm.controls.name.hasError('required')) {
+            Le nom de l'entrepôt est obligatoire.
+            } @else if (warehouseForm.controls.name.hasError('maxlength')) {
+            Le nom ne peut pas dépasser 100 caractères.
+            }
+          </small>
+          }
+        </div>
+
+        <div class="form-field">
+          <label for="address">Adresse <span class="required">*</span></label>
+          <div class="input-suffix">
+            <input id="address"
+                   type="text"
+                   formControlName="address"
+                   maxlength="255"
+                   placeholder="Ex. 123 Rue de la Paix, 75000 Paris"
+                   [class.invalid]="showError('address')"
+                   [attr.aria-invalid]="showError('address')"
+                   aria-describedby="address-help address-error" />
+          </div>
+
+          @if (showError('address')) {
+          <small id="address-error" class="error">
+            @if (warehouseForm.controls.address.hasError('required')) {
+            L'adresse est obligatoire.
+            } @else if (warehouseForm.controls.address.hasError('maxlength')) {
+            L'adresse ne peut pas dépasser 255 caractères.
+            }
+          </small>
+          }
+        </div>
+      </div>
+
+      <footer class="card-foot">
+        <button type="button" (click)="cancel()">Annuler</button>
+        <button type="submit">Créer l'entrepôt</button>
+      </footer>
+    </form>
+  </section>
+</div>

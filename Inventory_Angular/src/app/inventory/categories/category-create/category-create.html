@@ -1,0 +1,63 @@
+<div>
+  <section class="card">
+    <header class="card-head">
+      <div>
+        <h2>Nouvelle catégorie</h2>
+        <p>Les champs marqués d'un astérisque sont obligatoires.</p>
+      </div>
+    </header>
+
+    <form [formGroup]="categoryForm" (ngSubmit)="onSubmit()" novalidate>
+      <div class="card-body">
+        <div class="form-field">
+          <label for="name">Nom de la catégorie <span class="required">*</span></label>
+          <div class="input-suffix">
+            <input id="name"
+                   type="text"
+                   formControlName="name"
+                   maxlength="100"
+                   placeholder="Ex. Électronique"
+                   [class.invalid]="showError('name')"
+                   [attr.aria-invalid]="showError('name')"
+                   aria-describedby="name-help name-error" />
+          </div>
+
+          @if (showError('name')) {
+          <small id="name-error" class="error">
+            @if (categoryForm.controls.name.hasError('required')) {
+            Le nom de la catégorie est obligatoire.
+            } @else if (categoryForm.controls.name.hasError('maxlength')) {
+            Le nom ne peut pas dépasser 100 caractères.
+            }
+          </small>
+          }
+        </div>
+
+        <div class="form-field">
+          <label for="description">Description</label>
+          <div class="input-suffix">
+            <textarea id="description"
+                      formControlName="description"
+                      maxlength="500"
+                      placeholder="Ex. Tous les produits électroniques"
+                      rows="4"
+                      [class.invalid]="showError('description')"
+                      [attr.aria-invalid]="showError('description')"
+                      aria-describedby="description-help description-error"></textarea>
+          </div>
+
+          @if (showError('description')) {
+          <small id="description-error" class="error">
+            La description ne peut pas dépasser 500 caractères.
+          </small>
+          }
+        </div>
+      </div>
+
+      <footer class="card-foot">
+        <button type="button" (click)="cancel()">Annuler</button>
+        <button type="submit">Créer la catégorie</button>
+      </footer>
+    </form>
+  </section>
+</div>

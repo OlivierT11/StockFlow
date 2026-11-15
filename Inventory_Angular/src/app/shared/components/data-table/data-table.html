@@ -2,18 +2,24 @@
   <table>
     <thead>
       <tr>
-        @for (column of columns; track column.key) {
+        @for (column of columns(); track column.key) {
           <th scope="col">{{ column.label }}</th>
         }
       </tr>
     </thead>
     <tbody>
-      @for (row of rows; track $index) {
-        <tr>
-          @for (column of columns; track column.key) {
-            <td>{{ cellValue(row, column.key) }}</td>
+      @for (row of safeRows(); track $index) {
+      <tr>
+        @for (column of columns(); track column.key) {
+        <td>
+          @if (column.key === 'date') {
+          {{ cellValue(row, column.key) | date: 'dd/MM/yyyy HH:mm' }}
+          } @else {
+          {{ cellValue(row, column.key) }}
           }
-        </tr>
+        </td>
+        }
+      </tr>
       } @empty {
         <tr>
           <td class="empty" [attr.colspan]="columns.length || 1">Aucune donnée disponible.</td>

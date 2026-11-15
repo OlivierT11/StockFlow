@@ -27,7 +27,7 @@ namespace Inventory.Services
         public async Task<List<CategoryResponseDto>> GetAllAsync(CancellationToken cancellationToken = default)
         {
             var categories = await _categoryRepository.GetAllAsync(cancellationToken);
-            return categories.Select(ToResponseDto).ToList();
+            return categories.Select(ToResponseDto).ToList(); // ToResponseDto is a delegate here. Possible because it takes a Category and returns a CategoryResponseDto 
         }
 
         /// <inheritdoc />
@@ -68,6 +68,9 @@ namespace Inventory.Services
             return await _categoryRepository.DeleteAsync(id, cancellationToken);
         }
 
+        // requete déjà matérialisée dans le repo par ToListAsync
+        // LINQ travaille en mémoire : il appelle ToResponseDto(category) une fois pour chaque catégorie, puis crée une nouvelle liste de DTO.
+        // Et dans ce cas, le lazy loading n’intervient pas : ToResponseDto ne lit que Id et Name, qui sont déjà présents sur chaque entité.
         private static CategoryResponseDto ToResponseDto(Category category) => new()
         {
             Id = category.Id,
