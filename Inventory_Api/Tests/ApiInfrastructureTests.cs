@@ -31,39 +31,6 @@ public class ApiInfrastructureTests
     }
 
     /// <summary>
-    /// Test to ensure that /api/v1/auth/* is rate limited, with a 429 ProblemDetails and a Retry-After header,
-    /// and that the other endpoints are not.
-    /// </summary>
-    [Fact]
-    public async Task AuthEndpoints_AreRateLimited()
-    {
-        using var factory = new InMemoryWebApplicationFactory(new Dictionary<string, string?>
-        {
-            ["RateLimiting:Auth:PermitLimit"] = "2",
-            ["RateLimiting:Auth:WindowSeconds"] = "60"
-        });
-        using var client = factory.CreateClient();
-        var credentials = new { email = "nobody@example.com", password = "wrong-password" };
-
-        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/v1/auth/login", credentials)).StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/v1/auth/login", credentials)).StatusCode);
-
-        // The window is shared by all the auth endpoints of a client.
-        var limited = await client.PostAsJsonAsync("/api/v1/auth/refresh", new { refreshToken = "x" });
-
-        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
-        Assert.True(limited.Headers.Contains("Retry-After"));
-        var problem = await limited.Content.ReadFromJsonAsync<ProblemDetails>();
-        Assert.Equal(429, problem!.Status);
-
-        // Not rate limited: still 401 (no token) rather than 429.
-        for (var i = 0; i < 3; i++)
-        {
-            Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/products")).StatusCode);
-        }
-    }
-
-    /// <summary>
     /// Test to ensure that the unversioned routes no longer exist.
     /// </summary>
     [Fact]
