@@ -5,6 +5,11 @@
     <h1>Catégories</h1>
     <p class="lede">Organisez les produits par catégorie.</p>
   </div>
+  <div>
+    <button type="button" (click)="addCategory()">
+      Nouvelle catégorie
+    </button>
+  </div>
   </header>
 
 <section class="card card-body flush">
@@ -12,4 +17,11 @@
     <app-data-table [columns]="columns" [rows]="categories" />
   }
 </section>
+
+@if (isCreateModalOpen) {
+  <div class="overlay is-open" (click)="closeCreateModal()"></div>
+  <div class="modal" (click)="$event.stopPropagation()">
+    <app-category-create-page (close)="closeCreateModal()"></app-category-create-page>
+  </div>
+}
 </section>

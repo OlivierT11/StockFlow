@@ -1,12 +1,12 @@
 import { Routes } from '@angular/router';
 import { AdminLayout } from './layout/admin-layout';
 import { AuthGuard } from './auth/auth.guard';
-import { CategoriesPage } from './inventory/categories/categories.page';
-import { DashboardPage } from './inventory/dashboard/dashboard.page';
+import { CategoriesPage } from './inventory/categories/categories';
+import { DashboardPage } from './inventory/dashboard/dashboard';
 import { LoginPage } from './auth/login/login.page';
-import { ProductsPage } from './inventory/products/products.page';
-import { StockMovementsPage } from './inventory/stock-movements/stock-movements.page';
-import { WarehousesPage } from './inventory/warehouses/warehouses.page';
+import { ProductsPage } from './inventory/products/product-list/product-list';
+import { StockMovementsPage } from './inventory/stock-movements/stock-movements';
+import { WarehousesPage } from './inventory/warehouses/warehouses';
 import { ProductCreate } from './inventory/products/product-create/product-create';
 
 // Define the application routes, including public and protected routes

@@ -5,6 +5,11 @@
     <h1>Entrepôts</h1>
     <p class="lede">Consultez les emplacements et leurs capacités de stock.</p>
   </div>
+  <div>
+    <button type="button" (click)="addWarehouse()">
+      Nouvel entrepôt
+    </button>
+  </div>
   </header>
 
 <section class="card card-body flush">
@@ -12,4 +17,11 @@
     <app-data-table [columns]="columns" [rows]="warehouses" />
   }
 </section>
+
+@if (isCreateModalOpen) {
+  <div class="overlay is-open" (click)="closeCreateModal()"></div>
+  <div class="modal" (click)="$event.stopPropagation()">
+    <app-warehouse-create-page (close)="closeCreateModal()"></app-warehouse-create-page>
+  </div>
+}
 </section>

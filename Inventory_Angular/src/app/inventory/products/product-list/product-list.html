@@ -1,0 +1,49 @@
+<section class="page">
+  <header class="page-head">
+  <div>
+    <p class="eyebrow">GESTION DES STOCKS</p>
+    <h1>Produits</h1>
+    <p class="lede">Consultez les références et les niveaux de stock.</p>
+  </div>
+  <div>
+    <button type="button" (click)="addProduct()">
+      Nouveau produit
+    </button>
+  </div>
+  </header>
+</section>
+
+<section class="card card-body flush">
+  @if (products$ | async; as products) {
+    <app-data-table [columns]="columns" [rows]="products" />
+  }
+
+  <nav class="pagination" aria-label="Page navigation">
+    <button 
+      type="button" 
+      (click)="previousPage()" 
+      [disabled]="currentPage <= 1"
+      aria-label="Page précédente">
+      ← Précédent
+    </button>
+
+    <span class="pagination-info">
+      Page {{ currentPage }} sur {{ totalPages }}
+    </span>
+
+    <button 
+      type="button" 
+      (click)="nextPage()" 
+      [disabled]="currentPage >= totalPages"
+      aria-label="Page suivante">
+      Suivant →
+    </button>
+  </nav>
+</section>
+
+@if (isCreateModalOpen) {
+  <div class="overlay is-open" (click)="closeCreateModal()"></div>
+  <div class="modal" (click)="$event.stopPropagation()">
+    <app-product-create-page (close)="closeCreateModal()"></app-product-create-page>
+  </div>
+}

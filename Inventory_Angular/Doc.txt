@@ -1,0 +1,6 @@
+// créer un template de tous les fichiers d'un component (specs, html...)
+ng generate component mon-composant
+ng generate service mon-service
+
+// Lance les tests avec 
+ng test

@@ -1,15 +1,9 @@
-<div class="page">
-  <div class="breadcrumb">
-    <a routerLink="/products">Produits</a>
-    <span aria-hidden="true">›</span>
-    <span>Nouveau</span>
-  </div>
-
+<div>
   <section class="card">
     <header class="card-head">
       <div>
         <h2>Nouveau produit</h2>
-        <p>Les champs marqués d’un astérisque sont obligatoires.</p>
+        <p>Les champs marqués d'un astérisque sont obligatoires.</p>
       </div>
     </header>
 
@@ -17,15 +11,17 @@
       <div class="card-body">
         <div class="form-field">
           <label for="name">Nom du produit <span class="required">*</span></label>
-          <input id="name"
-                 type="text"
-                 formControlName="name"
-                 maxlength="100"
-                 placeholder="Ex. Clavier sans fil"
-                 [class.invalid]="showError('name')"
-                 [attr.aria-invalid]="showError('name')"
-                 aria-describedby="name-help name-error" />
-          <small id="name-help">100 caractères maximum.</small>
+          <div class="input-suffix">
+            <input id="name"
+                   type="text"
+                   formControlName="name"
+                   maxlength="100"
+                   placeholder="Ex. Clavier sans fil"
+                   [class.invalid]="showError('name')"
+                   [attr.aria-invalid]="showError('name')"
+                   aria-describedby="name-help name-error" />
+            <!--<small id="name-help">100 caractères maximum.</small>-->
+          </div>
 
           @if (showError('name')) {
           <small id="name-error" class="error">
@@ -40,90 +36,94 @@
 
         <div class="form-field">
           <label for="categoryId">Catégorie <span class="required">*</span></label>
-          <select id="categoryId"
-                  formControlName="categoryId"
-                  [class.invalid]="showError('categoryId')"
-                  [attr.aria-invalid]="showError('categoryId')">
-            <option value="" disabled>Choisir une catégorie</option>
-            @for (category of categories; track category.id) {
-            <option [value]="category.id">{{ category.name }}</option>
-            }
-          </select>
+          <div class="input-suffix">
+            <select id="categoryId"
+                    formControlName="categoryId"
+                    [class.invalid]="showError('categoryId')"
+                    [attr.aria-invalid]="showError('categoryId')">
+              <option value="" disabled>Choisir une catégorie</option>
+              @for (category of categories; track category.id) {
+              <option [value]="category.id">{{ category.name }}</option>
+              }
+            </select>
+          </div>
 
           @if (showError('categoryId')) {
           <small class="error">Veuillez choisir une catégorie.</small>
           }
         </div>
 
-        <div class="form-field">
-          <label for="unitPrice">Prix unitaire <span class="required">*</span></label>
-          <div class="input-suffix">
-            <input id="unitPrice"
-                   type="number"
-                   formControlName="unitPrice"
-                   min="0"
-                   step="0.01"
-                   inputmode="decimal"
-                   [class.invalid]="showError('unitPrice')"
-                   [attr.aria-invalid]="showError('unitPrice')"
-                   aria-describedby="price-help price-error" />
-            <span aria-hidden="true">€</span>
-          </div>
-          <small id="price-help">Deux décimales, supérieur ou égal à 0.</small>
-
-          @if (showError('unitPrice')) {
-          <small id="price-error" class="error">
-            @if (productForm.controls.unitPrice.hasError('required')) {
-            Le prix unitaire est obligatoire.
-            } @else {
-            Le prix doit être supérieur ou égal à 0.
+          <div class="form-field">
+            <label for="unitPrice">Prix unitaire <span class="required">*</span></label>
+            <div class="input-suffix">
+              <input id="unitPrice"
+                     type="number"
+                     formControlName="unitPrice"
+                     min="0"
+                     step="0.01"
+                     inputmode="decimal"
+                     [class.invalid]="showError('unitPrice')"
+                     [attr.aria-invalid]="showError('unitPrice')"
+                     aria-describedby="price-help price-error" />
+              <span aria-hidden="true">€</span>
+            </div>
+            <!--<small id="price-help">Deux décimales, supérieur ou égal à 0.</small>-->
+            @if (showError('unitPrice')) {
+            <small id="price-error" class="error">
+              @if (productForm.controls.unitPrice.hasError('required')) {
+              Le prix unitaire est obligatoire.
+              } @else {
+              Le prix doit être supérieur ou égal à 0.
+              }
+            </small>
             }
-          </small>
-          }
-        </div>
+          </div>
 
-        <div class="form-field">
-          <label for="initialStock">Stock initial <span class="required">*</span></label>
-          <input id="initialStock"
-                 type="number"
-                 formControlName="initialStock"
-                 min="0"
-                 step="1"
-                 [class.invalid]="showError('initialStock')"
-                 [attr.aria-invalid]="showError('initialStock')"
-                 aria-describedby="stock-help stock-error" />
-          <small id="stock-help">Quantité disponible à la création.</small>
+              <div class="form-field">
+                <label for="initialStock">Stock initial <span class="required">*</span></label>
+                <div class="input-suffix">
+                  <input id="initialStock"
+                         type="number"
+                         formControlName="initialStock"
+                         min="0"
+                         step="1"
+                         [class.invalid]="showError('initialStock')"
+                         [attr.aria-invalid]="showError('initialStock')"
+                         aria-describedby="stock-help stock-error" />
+                  <!--<small id="stock-help">Quantité disponible à la création.</small>-->
+                </div>
+                @if (showError('initialStock')) {
+                <small id="stock-error" class="error">
+                  Le stock initial doit être supérieur ou égal à 0.
+                </small>
+                }
+              </div>
 
-          @if (showError('initialStock')) {
-          <small id="stock-error" class="error">
-            Le stock initial doit être supérieur ou égal à 0.
-          </small>
-          }
-        </div>
-
-        <div class="form-field">
-          <label for="lowStockThreshold">
-            Seuil de stock bas <span class="required">*</span>
-          </label>
-          <input id="lowStockThreshold"
-                 type="number"
-                 formControlName="lowStockThreshold"
-                 min="0"
-                 step="1"
-                 [class.invalid]="showError('lowStockThreshold')"
-                 [attr.aria-invalid]="showError('lowStockThreshold')"
-                 aria-describedby="threshold-help threshold-error" />
-          <small id="threshold-help">
+              <div class="form-field">
+                <label for="lowStockThreshold">
+                  Seuil de stock bas <span class="required">*</span>
+                </label>
+                <div class="input-suffix">
+                  <input id="lowStockThreshold"
+                         type="number"
+                         formControlName="lowStockThreshold"
+                         min="0"
+                         step="1"
+                         [class.invalid]="showError('lowStockThreshold')"
+                         [attr.aria-invalid]="showError('lowStockThreshold')"
+                         aria-describedby="threshold-help threshold-error" />
+                  <!--<small id="threshold-help">
             Le produit passe « sous seuil » quand le stock est inférieur ou égal.
-          </small>
+          </small>-->
+                </div>
 
-          @if (showError('lowStockThreshold')) {
-          <small id="threshold-error" class="error">
-            Le seuil doit être supérieur ou égal à 0.
-          </small>
-          }
-        </div>
-      </div>
+                @if (showError('lowStockThreshold')) {
+                <small id="threshold-error" class="error">
+                  Le seuil doit être supérieur ou égal à 0.
+                </small>
+                }
+              </div>
+            </div>
 
       <footer class="card-foot form-actions">
         <button class="btn btn-secondary" type="button" (click)="cancel()">

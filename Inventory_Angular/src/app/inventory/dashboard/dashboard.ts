@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { DashboardApi } from './dashboard-api';
+import { DashboardApi } from './services/dashboard-api';
 import { DashboardSummary } from './dashboard.model';
 import { AsyncPipe } from '@angular/common';
 import { MetricCard } from '../../shared/components/metric-card/metric-card';
@@ -8,7 +8,7 @@ import { MetricCard } from '../../shared/components/metric-card/metric-card';
 @Component({
   selector: 'app-dashboard-page',
   imports: [AsyncPipe, MetricCard],
-  templateUrl: './dashboard.page.html',
+  templateUrl: './dashboard.html',
 })
 export class DashboardPage {
   private readonly dashboardApi = inject(DashboardApi);

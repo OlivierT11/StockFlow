@@ -5,6 +5,11 @@
     <h1>Mouvements de stock</h1>
     <p class="lede">Suivez les entrées, sorties et ajustements de stock.</p>
   </div>
+  <div>
+    <button type="button" (click)="addMovement()">
+      Nouveau mouvement
+    </button>
+  </div>
   </header>
 
 <section class="card card-body flush">
@@ -12,4 +17,11 @@
     <app-data-table [columns]="columns" [rows]="movements" />
   }
 </section>
+
+@if (isCreateModalOpen) {
+  <div class="overlay is-open" (click)="closeCreateModal()"></div>
+  <div class="modal" (click)="$event.stopPropagation()">
+    <app-stock-movement-create-page (close)="closeCreateModal()"></app-stock-movement-create-page>
+  </div>
+}
 </section>

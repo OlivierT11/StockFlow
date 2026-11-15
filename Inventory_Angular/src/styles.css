@@ -2238,28 +2238,38 @@ details.chart-details[open] > summary .od-icon {
   max-width: 480px;
   background: var(--surface);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  transform: translateY(8px) scale(0.98);
-  transition: transform var(--dur) var(--ease-out);
+  box-shadow: 0 20px 60px rgba(16, 24, 32, 0.25);
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) translateY(8px) scale(0.98);
+  transition: transform var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out);
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 48px);
+  z-index: 51;
+  overflow: hidden;
 }
 
 .overlay.is-open .modal {
-  transform: none;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 25px 80px rgba(16, 24, 32, 0.35);
 }
 
 .modal-head {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  padding: var(--sp-5) var(--sp-6) 0;
+  padding: var(--sp-6) var(--sp-6) var(--sp-5);
+  border-bottom: 1px solid var(--surface-3);
+  background: linear-gradient(to bottom, var(--surface-2), var(--surface));
 }
 
   .modal-head h2 {
     font-size: var(--fs-lg);
     flex: 1;
+    font-weight: 600;
+    letter-spacing: -0.5px;
   }
 
   .modal-head .modal-icon {
@@ -2279,10 +2289,11 @@ details.chart-details[open] > summary .od-icon {
     }
 
 .modal-body {
-  padding: var(--sp-4) var(--sp-6);
+  padding: var(--sp-6);
   color: var(--text-2);
   font-size: var(--fs-sm);
   overflow-y: auto;
+  line-height: 1.6;
 }
 
   .modal-body strong {
@@ -2293,7 +2304,11 @@ details.chart-details[open] > summary .od-icon {
   display: flex;
   justify-content: flex-end;
   gap: var(--sp-2);
-  padding: 0 var(--sp-6) var(--sp-5);
+  padding: var(--sp-5) var(--sp-6) var(--sp-6);
+  border-top: 1px solid var(--surface-3);
+  background: linear-gradient(to top, var(--surface-2), var(--surface));
+  margin-top: auto;
+}
 }
 
 .drawer-overlay {
