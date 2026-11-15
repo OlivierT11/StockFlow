@@ -2,7 +2,6 @@ import { Routes } from '@angular/router';
 import { AdminLayout } from './layout/admin-layout';
 import { AuthGuard } from './auth/auth.guard';
 import { CategoriesPage } from './inventory/categories/categories';
-import { DashboardPage } from './inventory/dashboard/dashboard';
 import { LoginPage } from './auth/login/login.page';
 import { ProductsPage } from './inventory/products/product-list/product-list';
 import { StockMovementsPage } from './inventory/stock-movements/stock-movements';
@@ -25,12 +24,7 @@ export const routes: Routes = [
       {
         path: '',
         pathMatch: 'full',
-        redirectTo: 'dashboard',
-      },
-      {
-        path: 'dashboard',
-        component: DashboardPage,
-        title: 'Tableau de bord | StockFlow',
+        redirectTo: 'products',
       },
       {
         path: 'products/new',
@@ -59,7 +53,7 @@ export const routes: Routes = [
       },
       {
         path: '**',
-        redirectTo: 'dashboard',
+        redirectTo: 'products',
       },
     ],
   },
